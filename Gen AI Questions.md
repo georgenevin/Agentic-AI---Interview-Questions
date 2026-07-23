@@ -462,3 +462,131 @@ A fully managed, cloud-based search service where you index your data so it can 
 - **Agentic retrieval** — a newer mode where the search service itself can decompose a complex query into sub-queries and orchestrate retrieval across them automatically, rather than the calling application doing that decomposition manually.
 
 *Note: Microsoft has deprecated "Azure OpenAI On Your Data" in favor of this Azure AI Search + Foundry Agent Service / Foundry IQ pattern for grounding LLMs in enterprise data — worth mentioning if asked about the current recommended architecture.*
+
+---
+
+## Testing AI Systems
+
+**Q: We're building a code generator — how do you test that it's working correctly?**
+
+Testing a code *generator* is different from testing regular code — the output varies, so "correctness" isn't a single boolean. Layer it:
+
+1. **Execution-based correctness** — don't just read the generated code, actually run it against test cases in a sandbox and check the output (same approach LeetCode/HackerRank use).
+2. **Edge cases, not just happy path** — nulls, empty inputs, zero/max values, malformed data, concurrent access. Generators trained mostly on happy-path examples tend to fail silently on boundaries.
+3. **Business logic correctness** — verify it solves the *right* problem with correct calculations, not just code that looks plausible.
+4. **Adversarial review** — use a separate AI prompt/model (not the one that generated the code) to critique it, explicitly instructed to find problems rather than approve.
+5. **Static analysis + security scanning** — run automatically on every generated output; generated code has measurably higher rates of security issues and logic errors than human-written code.
+6. **Regression suite** — keep a fixed set of real prompts (including ones that previously broke it); re-run every time the generator/model/prompt changes, and flag if the pass rate drops.
+7. **Non-functional checks** — consistency across repeated runs on the same prompt, adherence to your codebase's style/conventions, and cost/latency if generation is multi-step/agentic.
+
+**One-liner:** *"Don't eyeball the code — execute it against test cases in a sandbox, hit it with edge cases, verify business logic, have a separate AI adversarially review it, run static/security scans automatically, and track a regression suite over time."*
+
+---
+
+## Azure AI Content Safety / Content Filters
+
+**Q: What is the content filter in Azure AI Foundry?**
+
+A safety layer that operates on both sides of a model call:
+- **Input filtering** — blocks malicious/harmful user input before it ever reaches the model.
+- **Output filtering** — monitors what the model generates and blocks harmful, inaccurate, or copyright-infringing content before it's returned to the user.
+
+**Q: What does Azure AI's content filter actually check for?**
+
+- **Four core harm categories**: hate/fairness, violence, self-harm, sexual content — each scored with a severity level.
+- **Prompt Shields** — detects both **direct** prompt attacks (jailbreak attempts embedded in the user's own message) and **indirect** attacks (malicious instructions hidden inside retrieved documents/content the model is asked to process).
+- **Protected material detection** — checks model-generated text/code against known public repositories and copyrighted text to catch verbatim reproduction.
+- **Custom blocklists** — you can define your own list of terms to explicitly block, layered on top of the built-in categories.
+
+**Q: What is quota in Azure AI Foundry / Azure OpenAI?**
+
+Assigned at the **subscription level, per region, per model** — expressed as:
+- **TPM** — tokens per minute
+- **RPM** — requests per minute
+
+**Global deployment** types use Azure's global infrastructure to dynamically route traffic to whichever datacenter has capacity available, rather than pinning you to one region — useful for higher throughput/availability at the cost of not controlling exactly which region processes a given request.
+
+---
+
+## Tools & Frameworks
+
+**Q: What is Pydantic?**
+
+*(Original note was too thin to be useful as an answer — expanded below.)* A Python library for **data validation and settings management using type hints**. You define a model as a class with typed fields; Pydantic validates incoming data against those types at runtime, coerces compatible types, and raises clear validation errors otherwise. In AI/agent systems specifically, it's commonly used to force an LLM's output into a **structured, guaranteed-shape response** (e.g., "return a `PatientSummary` object with these exact fields") rather than trusting free-form text.
+
+**Q: What is LangGraph?**
+
+*(Original note — "automate complex workflow" — was too vague to be a real answer. Expanded below.)* A framework (from the LangChain team) for building **stateful, multi-step AI workflows and multi-agent systems as a graph** of nodes and edges, rather than a simple linear chain. Key capabilities that distinguish it from a basic LangChain chain:
+- Supports **cycles/loops** (e.g., an agent retrying or re-planning), not just straight-line execution.
+- Built-in **state persistence** across steps, so long-running or resumable workflows are possible.
+- Native support for **human-in-the-loop** checkpoints (pause and wait for approval before continuing).
+- Used for orchestrating **multi-agent** systems where different nodes represent different agents/tools collaborating.
+
+---
+
+## Advanced RAG Strategies
+
+**Q: What are common advanced RAG strategies (beyond basic retrieve-then-generate)?**
+
+- **Reranking** — a second-pass relevance scoring step (see cross-encoder note below).
+- **Multi-step / step-back retrieval** — retrieving iteratively (breaking a query into steps) rather than in a single pass; see Step-Back RAG and query decomposition, covered earlier.
+- **Agentic RAG** — an LLM/agent decides dynamically when and what to retrieve, rather than always retrieving once up front.
+- **GraphRAG** — retrieval over a knowledge graph to capture relationships across documents, not just isolated chunks.
+- **Contextual retrieval** — enriching each chunk with surrounding document context (e.g., a short LLM-generated summary of where the chunk sits in the larger document) before embedding, so the chunk is more self-contained and easier to match correctly.
+- **Query expansion** — reformulating or adding related terms/variations to the user's query before retrieval, to improve recall.
+
+---
+
+## RAG System Design (End-to-End Architecture)
+
+**Q: How would you design a production RAG system end-to-end?**
+
+**High-level flow:**
+```
+User query → cache check → hybrid search → re-ranking → context assembly → LLM → response
+```
+
+**Data foundation (chunking):**
+- Use **structure-aware, recursive chunking** that respects document semantics — the algorithm tries splitting on major document boundaries first (sections), then works down to smaller structural levels (paragraphs, sentences) only if a chunk is still too big.
+- Target chunk size in the **300–800 token** range as a starting point (tune per domain — legal/technical content often needs more).
+- Use **overlapping chunks** — e.g., the last ~100 tokens of one chunk repeated as the first ~100 tokens of the next — to avoid losing information/context right at a chunk boundary.
+
+**Metadata architecture:**
+- Attach metadata to every chunk — source document, section, timestamp, document type — and store it alongside the vector, so it can be used for filtering, citation, and access control at query time.
+
+**Embedding strategy:**
+- **Batch** embedding generation rather than making one API call per chunk.
+- Only generate embeddings for **new/changed content**, not the whole corpus every time.
+- Store the **embedding model version** alongside cached chunks, so you can do **selective re-embedding** later if you upgrade models, instead of re-embedding everything.
+
+**Vector storage & retrieval:**
+- Vector databases use specialized indexes (e.g., HNSW) for efficient **approximate nearest neighbor (ANN)** search at scale.
+- **Hybrid search** — combine dense semantic (vector) search with sparse keyword matching (e.g., BM25); vector search catches semantically similar phrasing, keyword search catches exact matches (IDs, codes, names). Merge the two ranked lists with **Reciprocal Rank Fusion (RRF)**.
+
+**Re-ranking:**
+- A **cross-encoder** processes the query and each candidate document *together* (jointly), scoring relevance more precisely than the initial retrieval step could — then the top ~10 most relevant chunks after re-ranking get passed forward as context.
+
+**LLM integration:**
+- The **system prompt** should explicitly instruct the model to answer based on the *provided context*, not its own training data/parametric knowledge — this is the main lever for keeping answers grounded and reducing hallucination. (Worth also instructing the model to say "I don't know" or similar when the retrieved context doesn't actually contain the answer, rather than guessing.)
+
+---
+
+## Caching Strategy
+
+**Q: How should you design caching for a RAG/LLM system?**
+
+- If the LLM (or a downstream dependency) is down, serving a **cached response** is better than a hard failure.
+- **Semantic caching** — if the current query is similar enough (by embedding similarity) to a previously cached query, serve the cached response instead of re-running the full pipeline — saves cost and latency.
+
+**Typical flow:**
+```
+User query → query cache check → embedding cache → vector search → LLM call → store result in cache
+```
+
+---
+
+## Model Routing
+
+**Q: What is model routing?**
+
+Route simple queries to a smaller/cheaper/faster model, and route complex queries to a more capable (and more expensive) model — rather than sending every request to your most powerful model by default. This is one of the main cost-reduction levers covered earlier (see "LLM bill hit ₹50 lakh/month" above).
