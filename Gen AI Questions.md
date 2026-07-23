@@ -590,3 +590,142 @@ User query → query cache check → embedding cache → vector search → LLM c
 **Q: What is model routing?**
 
 Route simple queries to a smaller/cheaper/faster model, and route complex queries to a more capable (and more expensive) model — rather than sending every request to your most powerful model by default. This is one of the main cost-reduction levers covered earlier (see "LLM bill hit ₹50 lakh/month" above).
+
+---
+
+## Reranking Approaches — Comparison
+
+**Q: When should you skip reranking?**
+
+- Ultra-low-latency requirements, where the extra reranking pass would blow your latency budget.
+- Cases that only need keyword matching (exact term/ID lookup), where semantic reranking adds no value.
+- When you're resource-constrained and "good enough" retrieval quality is acceptable.
+
+**Q: What is cross-encoder retrieval/reranking?**
+
+Feeds the query and a candidate document **together** into a transformer, which outputs a single joint relevance score. Highest accuracy of the reranking approaches, but too slow to run against your whole corpus — it's used as a **reranking** step on a small candidate set (e.g., top 50–100 from an initial cheap search), not as the primary retrieval method itself.
+
+**Q: What is ColBERT (as a reranking option)?**
+
+*(Correcting a contradiction from the notes: ColBERT was listed with "pros: extremely fast retrieval" — that's not accurate relative to standard dense retrieval. Corrected below.)*
+
+Encodes the query and document into **one vector per token** (rather than one vector for the whole document), then checks each query token against every document token to find the best match, and sums those best-match scores.
+
+- **Pro:** meaningfully more accurate than single-vector dense retrieval, since it preserves fine-grained, token-level detail.
+- **Con:** significant storage overhead (many vectors per document instead of one) and higher infrastructure complexity — it's **slower and heavier than standard single-vector dense retrieval**, though still faster than running a full cross-encoder over the whole corpus. Its real position: **more accurate than plain dense retrieval, faster than a cross-encoder** — a middle ground, not "extremely fast" in absolute terms.
+
+**Q: What is LLM-based reranking?**
+
+Use a generative model itself as the judge — give it the retrieved candidate documents and the query, and ask it to reason about (or directly rank/generate from) the most relevant ones.
+
+- **Pro:** strong reasoning ability — can weigh relevance in nuanced, context-sensitive ways a similarity score can't.
+- **Con:** high latency and cost, since it's a full LLM call rather than a lightweight scoring model.
+
+---
+
+## Tokenization & Embeddings — Core Concepts
+
+**Q: What is tokenization?**
+
+The process of breaking a string of text into smaller units called tokens (which can be whole words, sub-words, or characters, depending on the tokenizer).
+
+**Q: What does "contextualization" mean for embeddings?**
+
+*(Fixed model name typo: "text-embedding-03" → "text-embedding-3".)* Each token starts with a fixed ID. That ID is passed into a model (e.g., BERT, or OpenAI's `text-embedding-3` family) and moves through the model's **attention layers**, where the model looks at surrounding words and adjusts the token's representation accordingly — so the same word gets a different vector depending on its context (e.g., "bank" near "river" vs. "bank" near "loan").
+
+**Q: What is the `[CLS]` token?**
+
+A special token added to the very beginning of every input sequence in BERT-style models. As the sequence passes through the network, the attention mechanism lets the `[CLS]` token "attend to" every other token in the sequence. By the final layer, `[CLS]`'s vector effectively holds a summary representation of the entire input — which is why it's commonly used as the embedding for classification tasks or whole-sequence representations.
+
+---
+
+## Sampling, Generation & Context
+
+**Q: What is temperature?**
+
+Controls the randomness of the model's output by scaling the probability distribution over next tokens.
+
+- **T = 0** — effectively deterministic (always picks the highest-probability token; greedy decoding).
+- **T = 1** — roughly the model's natural, unscaled probability distribution ("neutral").
+- **T > 1** — flattens the distribution, making less-likely tokens more competitive → more randomness/creativity, but higher risk of incoherence.
+
+**Q: What is the context window?**
+
+The number of tokens an LLM can process (input + output combined, depending on how the vendor defines it) in a single call — effectively its working memory for understanding and generating text within that request.
+
+**Q: What is function/tool calling?**
+
+One of the most powerful features of modern chat completion APIs — the ability for the model to call external functions/tools (rather than just generating text), enabling it to fetch live data, take actions, or interact with external systems as part of producing a response.
+
+**Q: How do you reduce hallucination?**
+
+- **Better prompting** — explicit instructions to answer only from provided context, and to say "I don't know" rather than guess.
+- **Fine-tuning** — training on domain-specific data to reduce reliance on ungrounded parametric knowledge.
+- **A verification/grounding layer** — RAG (grounding answers in retrieved documents), citation requirements, or a separate fact-checking pass that verifies claims against source material before returning the response.
+
+**Q: What is a loss function?**
+
+A function that measures how wrong the model's predictions are compared to the actual/expected output during training — the training process works by adjusting model parameters to minimize this value.
+
+---
+
+## Model Context Protocol (MCP)
+
+**Q: What is an MCP Host?**
+
+The application that coordinates and manages one or more MCP clients (e.g., an AI assistant app or IDE).
+
+**Q: What is an MCP Client?**
+
+Maintains a connection to an MCP server, used to obtain context/tools from that server on behalf of the MCP host.
+
+**Q: What is an MCP Server?**
+
+A program that exposes context, tools, or data to an MCP client, following the MCP protocol.
+
+**Q: What is JSON-RPC?**
+
+*(Original note was a bit too simplified — expanded below.)* A lightweight remote procedure call protocol encoded in JSON — it lets one program ask another to execute a specific function (with named parameters) over a transport (like stdio or HTTP), and get a structured JSON response back. MCP uses JSON-RPC 2.0 as its underlying message format.
+
+**Q: What are MCP's transport mechanisms?**
+
+- **stdio transport** — communicates via standard input/output streams; used for local processes running on the same machine.
+- **Streamable HTTP** — uses HTTP POST for client-server messages; enables communication with remote servers and supports standard HTTP authentication.
+
+**Q: How does tool discovery work in MCP?**
+
+The client sends a `tools/list` request to the server, which returns the tools it has available. Once the client knows what's available, it can invoke a specific tool via `tools/call` with the appropriate arguments.
+
+---
+
+## Azure Identity
+
+**Q: What is Azure Managed Identity?**
+
+*(Clarified: this describes system-assigned managed identity specifically — the next entry covers the user-assigned variant.)* A passwordless authentication feature in Azure where an Azure resource is automatically given its own identity, letting it securely connect to other Azure resources without a developer ever having to manage or store a secret/credential themselves.
+
+**Q: What is a user-assigned managed identity?**
+
+A standalone Azure resource, created independently of any specific service, that represents an identity you can attach to multiple Azure services at once — letting several resources share the same identity and permission set, rather than each getting its own separate system-assigned identity.
+
+---
+
+## LangGraph — Interrupt Node
+
+**Q: What does an interrupt node do in LangGraph?**
+
+Pauses graph execution at that point and saves the current state to a **checkpointer**, so execution can be resumed later — commonly used for human-in-the-loop workflows (e.g., pause and wait for human approval before continuing to the next step).
+
+---
+
+## Designing an LLM/Gen AI Product — Key Considerations
+
+**Q: What are the key challenges/considerations when designing an LLM-based product?**
+
+- **Requirement gathering** — what specific problem is this actually solving?
+- **Edge case identification** — what happens when the user asks something outside the intended scope?
+- **Legal/policy constraints** — are there compliance, IP, or regulatory considerations?
+- **Expected business outcomes** — defined success metrics, acceptable accuracy thresholds.
+- **Data source & citation** — where does grounding data come from, and can answers be traced back to sources?
+- **Integration points** — internal systems, third-party systems, and how authentication is handled across them.
+- **Governance & maintenance** — audit trails, feedback loops, and ongoing data security considerations.
