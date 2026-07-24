@@ -729,3 +729,356 @@ Pauses graph execution at that point and saves the current state to a **checkpoi
 - **Data source & citation** — where does grounding data come from, and can answers be traced back to sources?
 - **Integration points** — internal systems, third-party systems, and how authentication is handled across them.
 - **Governance & maintenance** — audit trails, feedback loops, and ongoing data security considerations.
+
+# Python Interview Preparation Notes
+
+# Python Decorators
+
+### Q. What is a decorator in Python?
+
+A decorator is a function that modifies or extends the behavior of another function without changing its original code.
+
+```python
+def my_decorator(func):
+    def wrapper():
+        print("before execution")
+        func()
+        print("after execution")
+    return wrapper
+
+@my_decorator
+def greet():
+    print("Hello World!")
+
+greet()
+```
+
+**Output**
+
+```text
+before execution
+Hello World!
+after execution
+```
+
+## Explanation
+
+- `@my_decorator` wraps the `greet()` function.
+- The decorator executes code before and after the original function.
+
+---
+
+# Virtual Environment
+
+### Q. What is a Virtual Environment?
+
+A virtual environment is an isolated Python environment that contains its own Python interpreter and packages.
+
+## Benefits
+
+- Prevents package conflicts between projects.
+- Keeps the global Python installation clean.
+- Allows different projects to use different package versions.
+
+## Commands
+
+```bash
+python -m venv .venv
+```
+
+Activate on PowerShell:
+
+```powershell
+.venv\Scripts\Activate.ps1
+```
+
+---
+
+# requirements.txt
+
+### Q. What is requirements.txt?
+
+`requirements.txt` contains the list of Python packages required for a project.
+
+Example:
+
+```text
+langchain
+openai
+fastapi
+uvicorn
+```
+
+Install packages:
+
+```bash
+pip install -r requirements.txt
+```
+
+Generate file:
+
+```bash
+pip freeze > requirements.txt
+```
+
+---
+
+# Lock File
+
+### Q. What is a Lock File?
+
+A lock file stores the exact versions of all packages and their dependencies.
+
+Examples:
+
+- `uv.lock`
+- `poetry.lock`
+- `Pipfile.lock`
+
+---
+
+# System Prompt
+
+### Q. What is a System Prompt?
+
+A system prompt is a set of instructions given to an LLM that defines how it should behave, respond, and follow rules throughout the conversation.
+
+---
+
+# Python Data Structures
+
+### Q. What are the main Python data structures?
+
+| Data Structure | Description |
+|---------------|-------------|
+| List | Ordered, mutable, allows duplicates |
+| Tuple | Ordered, immutable, allows duplicates |
+| Set | Unordered, unique values only |
+| Dictionary | Key-value pairs, fast lookup by key |
+
+---
+
+# Ordered vs Unordered Data Structures
+
+### Q. What is the difference between ordered and unordered data structures?
+
+**Ordered**
+- Maintains insertion order.
+- Elements can be accessed by position.
+
+Examples:
+- List
+- Tuple
+- Dictionary (Python 3.7+)
+
+**Unordered**
+- Does not guarantee element order.
+- Usually optimized for uniqueness or fast lookup.
+
+Example:
+- Set
+
+---
+
+# Generators
+
+### Q. What are Generators in Python?
+
+Generators are functions that produce values one at a time using the `yield` keyword instead of returning all values at once.
+
+```python
+def numbers():
+    yield 1
+    yield 2
+    yield 3
+```
+
+Benefits:
+- Memory efficient
+- Useful for large datasets
+
+---
+
+# *args and **kwargs
+
+### Q. What are *args and **kwargs?
+
+### *args
+
+Collects multiple positional arguments into a tuple.
+
+```python
+def add(*args):
+    print(args)
+```
+
+### **kwargs
+
+Collects multiple keyword arguments into a dictionary.
+
+```python
+def show(**kwargs):
+    print(kwargs)
+```
+
+---
+
+# Single Agent vs Multi-Agent
+
+### Q. When should you use a Single Agent?
+
+Use a single agent when:
+
+- The solution handles one main task or intent.
+- A single team manages the application.
+- No separate authentication or deployment is needed.
+- Tool usage is relatively simple.
+
+### Q. When should you use Multiple Agents?
+
+Use multiple agents when:
+
+- Different tasks require specialized expertise.
+- Agents need different tools or permissions.
+- Different teams manage different components.
+- Agents can be reused across applications.
+
+---
+
+# Multi-Agent Architecture
+
+### Q. What is a Multi-Agent System?
+
+A multi-agent system consists of multiple agents working together to solve a problem.
+
+Each agent typically has:
+
+- Its own prompt
+- Its own tools
+- Its own memory/state
+- Its own business logic
+
+In LangGraph:
+
+- Agent = Node
+- Communication path = Edge
+
+---
+
+# Spec Driven Development
+
+### Q. What is Spec Driven Development?
+
+Spec Driven Development starts with a detailed specification before writing code.
+
+## Step 1: Specify
+- Problem being solved
+- Users
+- Expected outcome
+- User journey
+
+## Step 2: Plan
+- Architecture
+- Technology stack
+- Constraints
+- Performance requirements
+
+## Step 3: Tasks
+Break work into small testable tasks.
+
+---
+
+# Literal Type in Python
+
+### Q. What is Literal in Python?
+
+```python
+from typing import Literal
+
+def process(status: Literal["start", "end"]):
+    pass
+```
+
+Restricts a variable to specific predefined values.
+
+---
+
+# Command Object in LangGraph
+
+### Q. What is the Command object in LangGraph?
+
+The Command object allows a node to:
+
+1. Update graph state.
+2. Decide which node executes next.
+
+Example:
+
+```python
+return Command(
+    update={"status": "completed"},
+    goto="next_node"
+)
+```
+
+---
+
+## Difference between List and Tuple
+
+| List | Tuple |
+|------|--------|
+| Mutable | Immutable |
+| Slower | Faster |
+| More memory | Less memory |
+
+---
+
+## Difference between Deep Copy and Shallow Copy
+
+### Shallow Copy
+
+```python
+import copy
+b = copy.copy(a)
+```
+
+### Deep Copy
+
+```python
+b = copy.deepcopy(a)
+```
+
+---
+
+## Difference between Process and Thread
+
+### Thread
+- Shares memory
+- Lightweight
+- Good for I/O tasks
+
+### Process
+- Separate memory
+- Heavier
+- Good for CPU-intensive tasks
+
+---
+
+## What is GIL in Python?
+
+GIL (Global Interpreter Lock) allows only one thread to execute Python bytecode at a time.
+
+- Threads are good for I/O-bound tasks.
+- Multiprocessing is preferred for CPU-bound tasks.
+
+---
+
+## What is a Python Dictionary Internally?
+
+Python dictionaries are implemented using a hash table.
+
+Benefits:
+
+- O(1) average lookup
+- O(1) average insertion
+- O(1) average deletion
