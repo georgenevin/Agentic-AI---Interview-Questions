@@ -631,6 +631,10 @@ A special token added to the very beginning of every input sequence in BERT-styl
 
 ## Sampling, Generation & Context
 
+**Q: What is a system prompt?**
+
+A set of instructions given to an LLM that defines how it should behave, respond, and follow rules throughout a conversation — set once at the start of a session (distinct from the user's individual messages), and typically used to establish persona, tone, constraints, and grounding rules (e.g., "answer only from the provided context").
+
 **Q: What is temperature?**
 
 Controls the randomness of the model's output by scaling the probability distribution over next tokens.
@@ -902,6 +906,44 @@ Saving the complete state of execution at each step, so a run can be replayed, r
 
 Lets a node do two things in a single return value: **update the shared state** and **decide which node to call next** — combining state update and routing/control-flow decisions in one step, instead of needing separate mechanisms for each.
 
+```python
+return Command(
+    update={"status": "completed"},
+    goto="next_node"
+)
+```
+
+**Q: When should you use a single agent vs. multiple agents?**
+
+**Use a single agent when:**
+- The solution handles one main task or intent.
+- A single (or small) team manages the whole application.
+- No separate authentication, access control, or deployment is needed per component.
+- Tool usage is relatively simple, and there's no need to reuse the agent elsewhere.
+
+**Use multiple agents when:**
+- Different parts of the task require different specialized expertise or tools.
+- Agents need separate authentication/access control from each other.
+- Different teams manage and publish different components independently.
+- Agents need to be reused across multiple applications.
+- As a rough practical signal: if a single agent's tool-call chain is regularly running into the **30–40+ tool call** range for one task, that's often a sign the task should be decomposed across multiple specialized agents instead.
+
+**Q: What is Spec-Driven Development (for AI coding agents)?**
+
+A workflow for directing a coding agent that starts with a detailed specification *before* any code gets written, broken into three steps:
+
+1. **Specify** — a high-level description of what's being built and why: the user journey, the experience, the final result, who it's for, and what problem it solves.
+2. **Plan** — give the coding agent the desired stack, architecture, constraints, and performance targets; internal documentation can be provided here too, so the agent can integrate it directly into the plan.
+3. **Tasks** — break the spec and plan into concrete, actionable work items; each task should be small enough to implement and test in isolation.
+
+**Q: What does a multi-agent architecture look like in LangGraph specifically?**
+
+Each agent typically has its own prompt, its own tools, and its own memory/state, collaborating with other agents toward a shared goal. In LangGraph's graph model:
+- **Agent = Node** — each agent is represented as a node in the graph.
+- **Communication path = Edge** — connections between agents are represented as edges, defining how control/data passes between them.
+
+Key design questions: what are the independent agents needed for this task, and how should they be connected? Grouping tools/responsibilities sensibly, and giving each agent its own focused prompt (rather than one giant prompt trying to cover everything), tends to produce better results than one overloaded agent.
+
 **Q: What is LangSmith?**
 
 A platform (from the LangChain team) for tracing, debugging, evaluating, and monitoring LLM applications in production.
@@ -1119,9 +1161,28 @@ python -m venv .venv
 source .venv/bin/activate
 ```
 
+Example `requirements.txt`:
+
+```text
+langchain
+openai
+fastapi
+uvicorn
+```
+
+```bash
+# Install packages from the file
+pip install -r requirements.txt
+
+# Generate the file from what's currently installed
+pip freeze > requirements.txt
+```
+
 **Q: What is a lock file?**
 
 Records the **exact resolved version** of every package (and its dependencies) actually installed — used to reproduce an identical environment elsewhere, rather than just "install whatever's compatible right now" as a loose `requirements.txt` might.
+
+Common examples: `uv.lock`, `poetry.lock`, `Pipfile.lock`.
 
 ---
 
@@ -1174,3 +1235,317 @@ def set_status(status: Literal["start", "end"]) -> None:
     ...
 # set_status("startt")  # a type checker (e.g., mypy) would flag this as invalid
 ```
+
+---
+
+### More Python Fundamentals
+
+**Q: List vs. Tuple — key differences?**
+
+| List | Tuple |
+|---|---|
+| Mutable | Immutable |
+| Slower | Faster |
+| More memory | Less memory |
+
+The speed/memory advantage comes from immutability — since a tuple's size and contents can't change after creation, Python can allocate it more compactly and skip the bookkeeping needed to support resizing/mutation.
+
+**Q: Deep copy vs. shallow copy?**
+
+```python
+import copy
+
+b = copy.copy(a)       # shallow copy
+b = copy.deepcopy(a)   # deep copy
+```
+
+- **Shallow copy** — creates a new outer object, but nested objects inside it (e.g., a list of lists) are still shared references with the original. Modifying a nested object through `b` will also affect `a`.
+- **Deep copy** — recursively copies every nested object too, so `b` is fully independent of `a` — modifying anything inside `b` never touches `a`.
+
+**Q: Process vs. Thread?**
+
+- **Thread** — shares memory with other threads in the same process; lightweight to create; well suited to **I/O-bound** tasks (waiting on network/disk).
+- **Process** — has its own separate memory space; heavier to create and communicate across (needs IPC); well suited to **CPU-bound** tasks, since separate processes can run on separate CPU cores in true parallel.
+
+**Q: What is the GIL in Python?**
+
+The **Global Interpreter Lock** — a mechanism in CPython that allows only **one thread** to execute Python bytecode at a time, even on a multi-core machine.
+
+- This is why **threads** are good for I/O-bound tasks in Python (they release the GIL while waiting on I/O, letting other threads run) but don't give you true CPU parallelism.
+- For **CPU-bound** work, **multiprocessing** (separate processes, each with its own GIL) is generally preferred over threading, since it can actually use multiple cores.
+
+**Q: How is a Python dictionary implemented internally?**
+
+Implemented using a **hash table**. A key's hash value determines where its entry is stored, giving:
+
+- **O(1) average-case** lookup, insertion, and deletion.
+- (Worst case degrades to O(n) if there are many hash collisions, though Python's hash table design makes this rare in practice for typical usage.)
+
+---
+
+# LangChain / LangGraph Architecture & Lifecycle
+
+**Q: Explain the lifecycle of a LangChain-based AI project.**
+
+1. **Requirement gathering** — what's the task, who are the users, what data sources are involved.
+2. **Data ingestion** — load and parse source documents (PDFs, SharePoint, databases, APIs).
+3. **Chunking & embedding** — split documents into chunks, generate embeddings, store in a vector database.
+4. **Chain/agent design** — decide whether the task needs a simple chain (fixed steps) or an agent (dynamic tool use), and build it using LangChain's components (prompts, LLM wrappers, retrievers, tools).
+5. **Prompt engineering & tuning** — iterate on system prompts, few-shot examples, and output format until responses are reliable.
+6. **Evaluation** — test against a golden dataset (accuracy, faithfulness, relevance).
+7. **Guardrails & safety** — add input/output filtering, PII handling, hallucination checks.
+8. **Deployment** — wrap in an API (commonly FastAPI), containerize, deploy to cloud infrastructure.
+9. **Monitoring & observability** — tracing (e.g., LangSmith), logging, cost/latency dashboards.
+10. **Iteration** — use production feedback and failure cases to keep improving prompts, retrieval, and evaluation coverage.
+
+**Q: What is LangGraph, and how is it different from LangChain?**
+
+- **LangChain** — a library of composable building blocks (prompts, chains, retrievers, tools) primarily suited to linear or lightly-branching pipelines.
+- **LangGraph** — built on top of LangChain's components, but models the application as an explicit **graph** of nodes and edges, supporting **cycles/loops**, **persistent state** (checkpointing), and **human-in-the-loop** pauses — which a simple LangChain chain doesn't natively support. LangGraph is the better fit once your application needs an agent that can loop, branch dynamically, or be paused/resumed (e.g., waiting on human approval).
+
+**Q: Difference between a Chain, an Agent, and a Tool in LangChain?**
+
+- **Chain** — a fixed, predefined sequence of steps (e.g., prompt → LLM → parser) — the path is deterministic and known ahead of time.
+- **Agent** — an LLM that decides its own sequence of actions dynamically, typically by reasoning about which tool to call next based on the current state — the path is not fixed in advance.
+- **Tool** — a specific capability the agent (or a chain) can invoke — a function, an API call, a database query, a search function, etc. Tools are the "actions" an agent chooses from; the agent is the decision-maker choosing which tools to use and when.
+
+---
+
+# Vector Search & Retrieval Internals
+
+**Q: What is reranking in the context of vector search?**
+
+A second-pass step that re-scores an initial set of retrieved candidates (e.g., the top 50–100 from a vector/hybrid search) using a more precise but more expensive relevance model — typically a cross-encoder that looks at the query and each document *together*, rather than just comparing precomputed embeddings. The goal is to push the truly most relevant results to the very top, since the first-pass retrieval (fast but coarser) sometimes gets close matches wrong or misses subtle relevance signals.
+
+**Q: Difference between hybrid search and vector search — with use cases?**
+
+- **Vector search** — compares the semantic embedding of the query against document embeddings; finds results that are conceptually/semantically similar, even if they don't share exact keywords. *Best for:* natural-language questions, paraphrased queries, conceptual similarity ("find documents about reducing employee turnover" matching a doc that never uses the word "turnover").
+- **Hybrid search** — combines vector search with traditional keyword search (e.g., BM25), merging the two ranked lists (commonly via Reciprocal Rank Fusion). *Best for:* real-world enterprise search, where queries often mix semantic intent with exact terms that must match precisely — product codes, part numbers, acronyms, person names, legal clause numbers. Vector search alone can miss an exact ID match; hybrid search catches both.
+
+**Q: How do you decide chunk sizes for document processing?**
+
+- Start with a **300–800 token** range as a reasonable default, and tune based on the domain.
+- **Denser, reference-heavy content** (legal, technical specs) often needs **larger chunks** to preserve necessary context (defined terms, clause structure).
+- **Conversational or narrative content** can often use **smaller chunks**, since each idea is more self-contained.
+- Use **overlap** between consecutive chunks (e.g., ~100 tokens) so information sitting right at a chunk boundary isn't lost.
+- Prefer **structure-aware chunking** (split on section/paragraph boundaries first) over purely fixed-size splitting, so chunks stay semantically coherent rather than cutting mid-sentence or mid-table.
+- Validate empirically — test retrieval quality at a couple of different chunk sizes against real queries rather than picking one number theoretically and assuming it's right.
+
+**Q: What embedding dimensions have you used, and can they be changed?**
+
+Common embedding dimensionalities in practice range from a few hundred (e.g., 384, 768) up to 1,536 or 3,072 (e.g., OpenAI's `text-embedding-3-large` supports up to 3,072, and can be truncated to smaller dimensions like 256 or 1,024 via the `dimensions` parameter, trading a small amount of accuracy for lower storage cost and faster search). So yes — many modern embedding models explicitly support **reducing the output dimension** at generation time. What can't be changed after the fact is mixing dimensions/models within a single vector index — every vector in the same index must come from the same embedding model and dimensionality, so changing embedding models requires re-embedding and re-indexing all existing content.
+
+---
+
+# Chatbot & Agent Internals
+
+**Q: What happens in the background when a chatbot receives a simple question?**
+
+1. The user's message is received by the application/API layer.
+2. **Session/context lookup** — retrieve the ongoing conversation history (if any) for that user/session.
+3. **Guardrail checks** — input filtering (prompt injection detection, PII scanning) before anything is sent to the model.
+4. **Retrieval (if RAG-based)** — the query is embedded, relevant documents/chunks are retrieved (often hybrid search + reranking).
+5. **Prompt assembly** — the system prompt, conversation history, retrieved context, and the new user message are assembled into the final prompt sent to the LLM.
+6. **LLM call** — the model generates a response (possibly streamed back token by token).
+7. **Output guardrails** — checking the response for hallucination/faithfulness, PII, harmful content, before it's shown to the user.
+8. **Logging & state update** — the exchange is logged (for monitoring/evaluation) and the conversation state/session is updated with the new turn.
+9. The response is returned to the user.
+
+**Q: What are the main components of an "AI engine" (a production LLM application)?**
+
+- **LLM/foundation model layer** — the model(s) actually doing generation/reasoning.
+- **Orchestration layer** — chains/agents/workflows coordinating steps (e.g., LangChain/LangGraph).
+- **Retrieval layer** — vector database + retrieval/reranking logic, for RAG-based systems.
+- **Tool/integration layer** — connectors to external APIs, databases, and systems the agent can act on.
+- **Memory/state layer** — conversation history, session management, long-term memory storage.
+- **Guardrails layer** — input/output safety, PII handling, hallucination checks.
+- **Observability layer** — logging, tracing, metrics, evaluation pipelines.
+- **API/serving layer** — the interface (typically REST, e.g., FastAPI) through which applications actually call the system.
+
+**Q: How would you prevent hallucination in a chatbot's responses?**
+
+- Ground responses in retrieved context (RAG), and explicitly instruct the model in the system prompt to answer only from the provided context — and to say "I don't know" rather than guess when the context doesn't contain the answer.
+- Add a **faithfulness check** — verify (via a separate model call, or an automated metric like RAGAS) that claims in the response are actually supported by the retrieved documents.
+- Require **citations** — ask the model to cite which source/chunk supports each claim, making unsupported claims easier to spot (by a human or an automated checker).
+- Lower **temperature** for factual tasks, reducing unnecessary creative drift.
+- Use a **verification/self-check layer** — a second pass where the model (or another model) checks its own answer against the source material before returning it.
+- Continuously feed real production hallucination cases back into your regression/eval test suite.
+
+**Q: Is chat session management manual or automated?**
+
+In a well-built system, it's largely **automated**: a session ID is generated (or supplied by the client) when a conversation starts, and the conversation history/state is automatically persisted and retrieved by session ID on each turn — typically backed by a database or cache (Redis, a session table, or LangGraph's checkpointer for agentic systems). Manual intervention usually only comes in for things like session expiry policies, manually clearing/resetting a session, or handling edge cases like session handoff between systems.
+
+**Q: How should an agent handle repeated, identical user queries? Does this impact cost?**
+
+Yes — repeated/near-duplicate queries are a direct cost lever. The standard approach is **semantic caching**: check whether the current query is similar enough (by embedding similarity, not just exact string match) to a recently cached query, and if so, serve the cached response instead of running the full retrieval + LLM pipeline again. This both reduces cost (no LLM/embedding calls for a cache hit) and improves latency. It's worth combining with a reasonable cache expiry/invalidation policy, especially if the underlying data changes.
+
+**Q: Can an agent call multiple tools simultaneously?**
+
+Yes — if the tool calls are **independent of each other** (the output of one isn't needed as input to another), they can be dispatched **in parallel** (e.g., using `asyncio.gather` in Python, or a framework's built-in parallel tool-calling support) rather than sequentially, reducing overall latency. If one tool's output feeds into another's input, they have to run sequentially. Some LLM providers' function-calling APIs also support returning multiple tool calls in a single response, which the calling code can then execute concurrently.
+
+---
+
+# Azure AI Search — Deep Dive
+
+**Q: How does Azure AI Search work, at a high level?**
+
+1. **Data source** — connects to where your raw content lives (Blob Storage, SQL, SharePoint, Cosmos DB, etc.).
+2. **Indexer** — pulls content from the source, optionally runs it through a **skillset** (chunking, OCR, entity extraction, embedding generation), and writes the results into a **search index**.
+3. **Search index** — the structured, queryable store — with searchable text fields (for keyword/BM25 search) and vector fields (for semantic/vector search).
+4. **Querying** — supports keyword search, pure vector search, or **hybrid search** (both combined via Reciprocal Rank Fusion), optionally followed by a **semantic ranker** re-ranking pass for improved relevance.
+
+**Q: A user is searching SharePoint (containing documents, JPEG images, and vector images/blueprints) for "a computer blueprint" that exists somewhere in the file system or SharePoint. How would Azure AI Search retrieve that image?**
+
+This is a **multimodal search** scenario, and Azure AI Search has built-in support for it:
+
+1. **Ingestion:** a SharePoint indexer (or a Blob Storage indexer, if content is synced there first) pulls in the documents and images during indexing.
+2. **Image understanding**, via one of two approaches:
+   - **Image verbalization** — during ingestion, a GenAI/LLM skill generates a natural-language description of the image (e.g., "computer motherboard blueprint showing CPU socket, RAM slots, and power connectors"). That description is stored as text and embedded, so it participates in both keyword *and* vector search just like any other text content.
+   - **Direct multimodal embeddings** — a multimodal embedding model (e.g., Azure AI Vision's multimodal embedding model) embeds the image directly into the **same vector space** as text queries, without needing a text description step. A text query like "computer blueprint" gets embedded and compared directly against the image's embedding via vector similarity.
+3. **Querying:** when the user searches "computer blueprint," Azure AI Search runs a **hybrid query** — keyword matching against any verbalized descriptions/surrounding text, plus vector similarity matching against image embeddings (whichever approach was used) — merges the results, and optionally reranks them.
+4. **Result:** the matching image (or the document/page it came from) is returned, along with a reference/path back to where it physically lives (SharePoint or the underlying file system), so the user can open the original file.
+
+This is exactly the kind of scenario Azure AI Search's multimodal search capability (built-in skills for extracting, describing, and embedding both text and images from documents like PDFs) is designed to solve.
+
+**Q: Are you familiar with Microsoft Copilot Studio?**
+
+*(Model answer — personalize with your own project details.)* Copilot Studio is a low-code platform for building conversational agents ("Copilot" bots), built around **topics** (conversation subjects/intents), with support for API connectors, Power Automate integration, and deployment to channels like Teams and websites. It's well suited to department-specific or customer-facing agents that don't need heavy custom code. If asked "have you used it," describe: what kind of agent you built with it, which topics/system topics you configured, how you integrated external data (API connectors or generative orchestration pulling from a knowledge source), and how it was deployed (e.g., to Teams).
+
+**Q: How is a Copilot chatbot typically deployed?**
+
+*(Model answer.)* Built and configured in Copilot Studio (or Microsoft Foundry Agent Service for a code-first agent) → published to one or more channels (Microsoft Teams, a custom website via embed, Microsoft 365 Copilot) → for Teams specifically, publishing can provision the required Azure Bot Service registration automatically → ongoing monitoring via the platform's built-in analytics or Azure Application Insights.
+
+---
+
+# Production Experience — Deployment, APIs & Scaling
+
+*(The following are experience-based interview questions. Below are model answer frameworks — the technical substance a strong answer should cover — for you to personalize with your own project specifics.)*
+
+**Q: What experience do you have with deployment and production rollout?**
+
+A strong answer covers: containerizing the application (Docker), deploying to a managed compute service (Azure App Service, AKS, or a container app), using **feature flags** to roll out new capability safely, **health checks** for orchestration platforms to detect and restart unhealthy instances, and **automated rollback** if a deployment's error rate spikes. For AI-specific rollouts specifically, mention **canary deployment** — routing a small percentage of traffic (e.g., 5%) to a new model/prompt version before a full rollout, monitored against your evaluation metrics.
+
+**Q: Have you implemented REST APIs for AI model integration? Did you develop REST APIs in Python?**
+
+A strong answer names the concrete stack — most commonly **FastAPI** in Python for exposing an LLM/agent as a REST endpoint, with request/response schemas defined via **Pydantic models** for validation, and describes a real endpoint (e.g., `/chat` accepting a user query + session ID, returning a streamed or complete response).
+
+**Q: In FastAPI, how do you typically design APIs, and how do you handle async operations and performance?**
+
+- Define request/response schemas explicitly with **Pydantic models** — this gives you automatic validation and OpenAPI docs for free.
+- Use `async def` route handlers for I/O-bound work (calling an LLM API, a database, another service) so FastAPI can handle other requests concurrently while waiting — this is where async actually pays off, as covered in the .NET async section's underlying principle (don't block a thread on I/O).
+- For **streaming** LLM responses, use `StreamingResponse` to stream tokens back to the client as they're generated, rather than waiting for the full response.
+- For genuinely CPU-bound work, offload to a background worker/task queue rather than blocking the event loop.
+- Add dependency injection (FastAPI's `Depends`) for things like auth, DB sessions, and shared clients, rather than instantiating them per request.
+
+**Q: Do you have experience with containerization? Are you aware of multi-stage builds in Docker?**
+
+- **Containerization experience:** packaging an app (e.g., a FastAPI service) with its dependencies into a Docker image, so it runs identically across dev/staging/production, and deploying that image to a container platform.
+- **Multi-stage builds:** using multiple `FROM` stages in a single `Dockerfile` — e.g., one stage that installs build tools and compiles/installs dependencies, and a second, minimal final stage that copies over only the built artifacts and runtime dependencies (not the build tools). This keeps the final image significantly smaller and reduces the attack surface, since compilers and build-time-only packages never end up in the shipped image.
+
+```dockerfile
+# Stage 1: build
+FROM python:3.12 AS builder
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --user -r requirements.txt
+
+# Stage 2: final, minimal runtime image
+FROM python:3.12-slim
+WORKDIR /app
+COPY --from=builder /root/.local /root/.local
+COPY . .
+ENV PATH=/root/.local/bin:$PATH
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0"]
+```
+
+**Q: If your AI API suddenly gets high traffic, what steps would you take to scale it? How would you scale to handle 10,000 concurrent requests?**
+
+1. **Horizontal scaling / auto-scaling** — add more instances behind a load balancer, scaling out based on CPU/request-queue metrics.
+2. **Async, non-blocking request handling** — ensure the API isn't blocking threads on I/O (LLM calls, DB calls), so each instance can handle many concurrent in-flight requests.
+3. **Semantic caching** — absorb a meaningful chunk of duplicate/near-duplicate traffic without hitting the LLM at all.
+4. **Model routing** — route simpler requests to cheaper/faster models, reserving the most expensive model for requests that truly need it.
+5. **Rate limiting + queuing** — protect the system (and the downstream LLM provider's own rate limits) from being overwhelmed; queue excess load rather than dropping it outright.
+6. **Circuit breakers** — if the LLM provider itself is struggling, fail fast and fall back (a secondary provider, a cached response, or a graceful "try again shortly" message) instead of piling up hung requests.
+7. **Multi-region deployment** — for both latency and resilience, once traffic is large enough to justify it.
+
+**Q: Have you worked with Azure OpenAI? What configurations did you change, or what Azure services did you work with, and how did you improve search strategy? What were end users trying to search, and what's the criteria for a successful query?**
+
+*(Model answer framework.)* A strong answer names: the specific Azure OpenAI deployment(s) used (model, region, quota/TPM-RPM settings tuned for the load), and — for search-strategy specifically — concrete tuning decisions such as: adjusting chunk size/overlap after seeing retrieval misses, switching from pure vector to **hybrid search** once exact-term queries (product codes, names) were being missed, adding the **semantic ranker** for a relevance boost, or adjusting the number of retrieved chunks (`top-k`) based on context window budget. For "criteria for a successful query," a good answer defines it concretely: the correct document/chunk appears in the top-k results (retrieval quality), the generated answer is faithful to that content (no hallucination), and — ideally — this is validated against a labeled/golden query set rather than judged anecdotally.
+
+**Q: When doing prompt engineering, how do you ensure responses come out correctly, and what challenges have you faced while tuning prompts?**
+
+- Iterate against a fixed **test set of representative queries** (including edge cases) rather than eyeballing a handful of examples.
+- Use explicit **structure** in the prompt — clear instructions, examples (few-shot), and a defined output format (e.g., requesting JSON with a schema) to reduce variance.
+- **Common challenges worth naming:** the model ignoring instructions once the prompt gets too long; inconsistent output format across runs (mitigated with structured output / Pydantic-validated JSON); the model answering from its own training knowledge instead of provided context (mitigated with explicit grounding instructions and a faithfulness check); and prompts that worked well on one model version behaving differently after a silent model update — which is why a regression test suite matters.
+
+**Q: Can you explain the difference between Azure Functions and Durable Functions? Where have you used each?**
+
+- **Azure Functions** — stateless, event-driven, short-lived function executions triggered by events (HTTP request, timer, queue message, blob upload). Good fit for simple, quick, independent tasks (e.g., "resize this uploaded image," "process this single API call").
+- **Durable Functions** — an extension of Azure Functions that adds **statefulness and orchestration**, letting you write long-running, multi-step workflows in code (rather than a low-code designer), with automatic checkpointing so a workflow can survive restarts and run for hours, days, or longer. Supports patterns like function chaining, fan-out/fan-in (parallelize then aggregate), async HTTP APIs (long-running operation + status polling), and human-interaction/waiting patterns.
+- **When to use which:** a single, quick, independent task → plain Azure Function. A multi-step process that needs to track state across steps, wait on external events, or fan out work and later combine results → Durable Functions.
+
+**Q: How are you monitoring your applications in production? Have you used Azure Application Insights, and how have you improved based on it?**
+
+*(Model answer framework.)* Application Insights (part of Azure Monitor) provides distributed tracing, request/dependency telemetry, custom metrics, and log queries (via Kusto/KQL). A strong answer describes: tracking custom metrics specific to an AI application (LLM latency, token usage/cost per request, retrieval quality signals, error rates by category), setting up alerts on anomalies (e.g., latency spikes, error rate crossing a threshold), and giving a concrete example of a change made *because of* something observed in the telemetry (e.g., "we noticed P95 latency spiking during a specific retrieval step and added caching there").
+
+---
+
+# Multi-Agent Systems in Practice
+
+**Q: Have you created chatbots or multi-agent systems? Describe the design.**
+
+*(Model answer framework — describe your own system using this shape.)* A strong answer covers: the overall architecture (single agent vs. multi-agent, and why), the orchestration framework used (LangGraph, Semantic Kernel, Microsoft Agent Framework, etc.), how state/memory was managed across turns, which tools/external systems the agent(s) could call, how errors and edge cases were handled, and how the system was evaluated and monitored in production.
+
+**Q: How do you ensure correct agent communication in a multi-agent setup?**
+
+- Define **clear, structured message formats** between agents (e.g., a shared, typed state schema) rather than free-form text handoffs — reduces ambiguity about what's actually being passed.
+- Use an explicit **orchestrator/supervisor** to route and sequence communication, rather than letting agents communicate in an unconstrained, ad hoc way.
+- **Guard shared state** against concurrent writes (locking or a single writer per state slice) to avoid corruption.
+- Log every inter-agent message/handoff for traceability, so a miscommunication can actually be debugged after the fact.
+- Test agent-to-agent handoffs explicitly as part of your evaluation suite, not just end-to-end outcomes.
+
+**Q: For some scenarios, an agent isn't working correctly when fetching details from an external connector — how do you diagnose this, and who do you escalate it to?**
+
+1. **Isolate the layer** — is the failure in the connector/API itself (timeout, auth failure, bad response), in how the agent is calling it (wrong parameters), or in how the agent is interpreting the result?
+2. **Check structured error output** — a well-built connector should return a structured error (not just an exception), making it clear whether it's a transient issue (retry) or a real fault.
+3. **Reproduce in isolation** — call the connector directly outside of the agent to confirm whether the issue is connector-side or agent-side.
+4. **Escalation:** if it's the connector/API itself misbehaving (wrong data, downtime, changed schema) → escalate to the team owning that integration/API. If it's the agent's own logic/prompt/tool-calling behavior → that's on the AI/agent development team to fix directly.
+
+**Q: How do you ensure the data returned by an AI chatbot is accurate? What methodology do you follow?**
+
+Ground responses in retrieved source data (RAG) rather than relying on model memory; add faithfulness checks against that source data; maintain a **golden evaluation set** with expert-verified correct answers; run automated evaluation (RAGAS-style metrics, LLM-as-judge) plus periodic human review; and treat every production accuracy failure as a candidate to add to the regression test set, so the same mistake gets caught automatically going forward.
+
+**Q: A critical production issue affects 1% of cases — what do you do?**
+
+1. **Assess severity and blast radius first** — even at 1% of volume, is the *impact* of those failures severe (e.g., wrong medical/financial info) or low-stakes? Severity, not just frequency, determines urgency.
+2. **Reproduce and isolate** — pull the failing cases' logs/traces, identify what they have in common (a specific query pattern, a specific tool, a specific data source).
+3. **Contain** — if needed, add a targeted guardrail or fallback for that specific failure pattern while a proper fix is developed, rather than leaving it live.
+4. **Fix and validate** against the golden/regression set, specifically including the newly discovered failure cases.
+5. **Add monitoring** so a recurrence of that specific pattern is caught immediately, not rediscovered independently later.
+
+**Q: Is there a custom agent where you performed testing? Have you run evaluations effectively — what steps make evaluation more effective?**
+
+*(Model answer framework.)* Describe a specific agent you tested, and the evaluation steps that made it effective: a **golden dataset** with diverse, expert-verified examples (including edge cases and adversarial/trick queries); automated metrics (RAGAS-style faithfulness/relevance for RAG, trajectory/tool-accuracy checks for agents); LLM-as-judge for open-ended quality dimensions, calibrated periodically against human ratings; and treating the evaluation set as a **living dataset** — adding every real production failure to it over time, so evaluation coverage keeps growing rather than staying static.
+
+**Q: How did you manage access control?**
+
+*(Model answer framework.)* Typical layers: authentication (e.g., Azure AD/Entra ID, API keys, or JWT tokens depending on the system), authorization checks tied to user roles/claims (e.g., filtering retrieved documents by the requesting user's access level — relevant if using Azure AI Search with document-level metadata for role-based filtering), and, for agent tool access specifically, restricting which tools/actions a given agent or user context is allowed to invoke.
+
+**Q: Where did you store data during the application's implementation stage?**
+
+*(Model answer framework.)* Describe your actual setup — commonly: raw source documents in Blob Storage, structured/application data in a relational DB or Cosmos DB, vector embeddings in a vector database or Azure AI Search's vector index, and secrets in Azure Key Vault (never in application config files committed to source control).
+
+**Q: Can you explain your understanding of Microsoft Agent Framework? Have you built an agent-based solution with it? How would you design a multi-step AI agent system (chatbot + APIs + database)?**
+
+**Microsoft Agent Framework (MAF)** is Microsoft's open-source SDK/runtime for building AI agents and multi-agent workflows, with consistent APIs across .NET and Python. It reached general availability in 2026, converging what were previously two separate efforts — **AutoGen** (multi-agent patterns/research) and **Semantic Kernel** (enterprise features like session state, type safety, telemetry) — into a single supported framework. It provides chat clients, tool/MCP integration, middleware, and explicit multi-step **workflows**, plus a built-in **agent harness** (the runtime scaffolding — tool-calling loop, memory, context management, human-in-the-loop approvals — that turns a raw model into an agent that can actually act). For production, agents built with it can be deployed as **Hosted Agents** in Microsoft Foundry Agent Service, which packages the agent as a container with built-in identity, auto-scaling (including scale-to-zero), and observability.
+
+**Designing a multi-step agent system (chatbot + APIs + database):**
+
+1. **Entry point** — a chat interface (web/Teams/API) receives the user message.
+2. **Orchestrator/router** — classifies intent and decides which path/agent handles the request.
+3. **Retrieval layer** — for knowledge questions, retrieve from a vector store/Azure AI Search.
+4. **Tool layer** — for actionable requests, the agent calls specific tools that wrap your REST APIs (e.g., "create order," "check inventory") and/or query the database directly through a data-access tool.
+5. **State/memory layer** — conversation history and any multi-step task state persisted across turns (e.g., via a checkpointer, as in LangGraph, or MAF's session state management).
+6. **Guardrails** — input/output safety checks, and human-approval gating before any irreversible action (e.g., placing an order, sending a payment).
+7. **Response generation** — the LLM composes a final natural-language response, grounded in whatever was retrieved/returned from tools and the database.
+8. **Observability** — trace every step (which tool was called, what the DB returned, what the model generated) for debugging and evaluation.
