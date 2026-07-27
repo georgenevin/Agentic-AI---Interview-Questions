@@ -1,4 +1,4 @@
-# Azure & .NET / C# Interview Prep Notes
+# Azure / .NET / C# Interview Prep Notes
 
 ---
 
@@ -78,12 +78,11 @@ You can call it "not delivered" once any of these conditions is actually met —
 
 **One-liner:** *"An item is 'not delivered' once it either exhausts `MaxDeliveryCount` and lands in the DLQ, expires via TTL before being consumed, gets explicitly dead-lettered by the consumer, or fails outright at send time — not simply after one failed attempt."*
 
-
 ---
 
 ## Azure Cloud Services (App Service, Key Vault, Blob Storage, Bot Framework, Storage Queue)
 
-*(Service Bus specifically is covered in more depth in `Azure_Service_Bus_Messaging_Notes.md` — a brief recap is included here for completeness alongside the other storage/messaging services.)*
+*(Service Bus is covered in more depth in the "Azure Service Bus & Messaging" section above — a brief recap is included here for completeness alongside the other storage/messaging services.)*
 
 ### Microsoft Bot Framework — Direct Line
 
@@ -103,7 +102,7 @@ You can call it "not delivered" once any of these conditions is actually met —
 Direct Line ensures that text, Adaptive Cards, and suggested actions are all converted into the Activity object format the SDK understands.
 
 **Conversation state:**
-- State is keyed using a combination of `channelId` and `conversation.id` (roughly `{channelId}/conversations/{conversationId}` — *the original notes had this garbled; this is the corrected form*).
+- State is keyed using a combination of `channelId` and `conversation.id` (roughly `{channelId}/conversations/{conversationId}`).
 - A **state accessor** is used to get/set properties on the state object, and `SaveChangesAsync()` persists those changes.
 
 **Middleware:**
@@ -126,8 +125,6 @@ A PaaS (Platform-as-a-Service) offering that lets you run web apps, mobile backe
 
 **Q: What does Azure Key Vault store?**
 
-
-
 - **Secrets** — storing sensitive strings (connection strings, passwords, API keys).
 - **Keys** — cryptographic keys used for encryption/decryption or signing.
 - **Certificates** — X.509 certificates, which Key Vault can also manage the full lifecycle of (including auto-renewal).
@@ -140,8 +137,6 @@ A PaaS (Platform-as-a-Service) offering that lets you run web apps, mobile backe
 
 Stores unstructured data (files, images, backups, logs, etc.).
 
-
-
 - **Hot** — optimized for frequently accessed data; highest storage cost, lowest access cost.
 - **Cool** — for infrequently accessed data, stored for at least 30 days; lower storage cost, higher access cost than Hot.
 - **Cold** — for rarely accessed data, stored for at least 90 days; cheaper than Cool, still available for immediate read.
@@ -153,13 +148,13 @@ Stores unstructured data (files, images, backups, logs, etc.).
 
 ### Azure Service Bus (brief recap)
 
-*(See `Azure_Service_Bus_Messaging_Notes.md` for the full write-up on dead-lettering and delivery detection.)*
+*(See the "Azure Service Bus & Messaging" section above for the full write-up on dead-lettering and delivery detection.)*
 
 - **Enterprise-level message broker.**
 - **Queue** — one sender, and exactly **one** receiver processes each message (point-to-point).
 - **Topic + Subscription** — one sender, and **multiple** subscribers each receive their own independent copy (pub/sub).
 - **Dead-letter queue** — holds messages that couldn't be successfully delivered/processed.
-- **Duplicate detection** *(clarified from original notes)* — an optional feature where, if a message with the same `MessageId` is sent again within the configured duplicate-detection window (e.g., due to a retried send after a network failure), Service Bus discards the duplicate copy so it isn't processed twice.
+- **Duplicate detection** — an optional feature where, if a message with the same `MessageId` is sent again within the configured duplicate-detection window (e.g., due to a retried send after a network failure), Service Bus discards the duplicate copy so it isn't processed twice.
 - Good fit when you need a **pub/sub model, FIFO ordering** (via sessions), or **larger message sizes** than Storage Queues support.
 
 ---
@@ -176,7 +171,6 @@ Stores unstructured data (files, images, backups, logs, etc.).
   2. If the worker finishes successfully, it explicitly **deletes** the message.
   3. If the worker crashes or never finishes, the **visibility timeout expires**, and the message automatically reappears in the queue for another worker to pick up.
 
-
 ---
 
 # PART 2: .NET / C# / ASP.NET Core
@@ -185,15 +179,11 @@ Stores unstructured data (files, images, backups, logs, etc.).
 
 **Q: When to use `string` vs. `StringBuilder`?**
 
-
-
 - `string` is **immutable** — every modification creates a brand-new string object in memory. Fine for a small, fixed number of operations, or when the value genuinely won't change.
 - `StringBuilder` is **mutable** — it modifies an internal buffer in place instead of allocating a new object each time.
 - **Rule of thumb:** use `StringBuilder` when you're doing many concatenations/modifications (e.g., building a string inside a loop). Use plain `string` when there are few or no modifications — it's simpler and avoids the overhead of `StringBuilder` for a one-off case.
 
 **Q: Can you have just a `try` block on its own?**
-
-
 
 No — a bare `try` with nothing else is a compile error. A `try` block must be followed by at least one `catch`, a `finally`, or both:
 - `try { } catch { }` ✅
@@ -202,15 +192,11 @@ No — a bare `try` with nothing else is a compile error. A `try` block must be 
 
 **Q: `IEnumerable` vs. `IEnumerator`?**
 
-
-
 - **`IEnumerable`** represents something that *can be iterated*. It exposes a single method, `GetEnumerator()`, which returns an `IEnumerator`.
 - **`IEnumerator`** is the actual cursor doing the iteration — it exposes `MoveNext()`, `Current`, and `Reset()`.
 - In short: `IEnumerable` says "I can be looped over"; `IEnumerator` is the thing that actually does the looping (this is what a `foreach` loop uses under the hood).
 
 **Q: How does `async`/`await` actually work?**
-
-
 
 - Marking a method `async` allows it to contain `await` expressions and lets the compiler transform it into a state machine.
 - Execution proceeds **synchronously, on the calling thread**, right up until it hits an `await` on an operation that is actually asynchronous (e.g., waiting on network I/O, disk I/O, a timer).
@@ -282,8 +268,6 @@ An object of a subclass must be usable anywhere an object of the parent class is
 
 **Q: Singleton pattern — implementation?**
 
-
-
 A creational pattern that ensures a class has exactly one instance, with a global access point to it.
 
 ```csharp
@@ -308,8 +292,6 @@ public sealed class LazySingleton
 }
 ```
 
-*(The original snippet's `if (instance == null) { instance = new Singleton(); }` pattern is not thread-safe under concurrent access unless you add locking — that's exactly the problem `Lazy<T>` solves for you.)*
-
 **Q: Factory pattern?**
 
 A creational pattern where a dedicated factory class/method is responsible for creating objects of related subclasses, so calling code doesn't need to know the concrete type it's instantiating — it just asks the factory for "a product" and gets back the right implementation.
@@ -324,10 +306,8 @@ To avoid tight coupling, a class receives (is "injected with") the objects/servi
 
 **Q: DI service lifetimes?**
 
-*(One example was misleading — corrected below.)*
-
 - **Singleton** — one instance is created (either at startup or on first request) and shared by every request for the lifetime of the application. Example: a logging service, a configuration cache.
-- **Scoped** — one instance per HTTP request; shared within that request but not across requests. Example: **`DbContext`** (Entity Framework Core registers `DbContext` as **Scoped** by default — not Transient, as the original notes said. This matters because a Scoped `DbContext` tracks changes consistently for the whole request without leaking state between unrelated requests).
+- **Scoped** — one instance per HTTP request; shared within that request but not across requests. Example: **`DbContext`** (Entity Framework Core registers `DbContext` as **Scoped** by default. This matters because a Scoped `DbContext` tracks changes consistently for the whole request without leaking state between unrelated requests).
 - **Transient** — a brand-new instance is created every single time the service is requested/injected. Best for lightweight, stateless services with no shared state — e.g., a simple email-formatting helper.
 
 ---
@@ -365,7 +345,6 @@ A component that runs as part of the request-processing pipeline for every reque
 
 **Q: What's the typical middleware pipeline order?**
 
-
 1. Exception/error handling (`UseExceptionHandler` / `UseDeveloperExceptionPage`)
 2. HSTS (`UseHsts`) — production only
 3. HTTPS redirection (`UseHttpsRedirection`)
@@ -395,8 +374,6 @@ A lightweight, cross-platform web server built into ASP.NET Core, used to host A
 
 **Q: Where should you store secrets?**
 
-
-
 - **Not** directly in `appsettings.json` if it's committed to source control.
 - **.NET User Secrets** (Secret Manager tool) — for local development; stores secrets outside the project folder, not in source control.
 - **Azure Key Vault** — for production secrets, retrieved securely at runtime.
@@ -421,7 +398,7 @@ Pins the **.NET SDK version** a project should build with — useful for making 
 
 **Q: What is `launchSettings.json`?**
 
-*(Corrected filename — original said "Launch.json.")* Defines launch profiles and environment variables (like `ASPNETCORE_ENVIRONMENT`) used when running the app locally, e.g. from Visual Studio or `dotnet run`.
+Defines launch profiles and environment variables (like `ASPNETCORE_ENVIRONMENT`) used when running the app locally, e.g. from Visual Studio or `dotnet run`.
 
 **Q: What is `bundleconfig.json`?**
 
@@ -429,10 +406,9 @@ Used for bundling and minifying static assets (JS/CSS) in **older** ASP.NET / AS
 
 **Q: What is `project.json`?**
 
-*(This is outdated — flagging clearly rather than just cleaning up wording.)* `project.json` was used only in early, pre-release versions of .NET Core (around RC1/RC2, before the 1.0 release). It was **replaced by the standard MSBuild `.csproj` format** starting with .NET Core 1.0 RTM (2017) and is no longer used in any current .NET project. Not worth bringing up as current knowledge in an interview — mention `.csproj` instead if asked about project-level configuration.
+`project.json` was used only in early, pre-release versions of .NET Core (around RC1/RC2, before the 1.0 release). It was **replaced by the standard MSBuild `.csproj` format** starting with .NET Core 1.0 RTM (2017) and is no longer used in any current .NET project. Not worth bringing up as current knowledge in an interview — mention `.csproj` instead if asked about project-level configuration.
 
 **Q: How do you write custom middleware?**
-
 
 ```csharp
 public class CustomMiddleware
@@ -464,7 +440,7 @@ Primarily via **data annotations** (`[Required]`, `[StringLength]`, `[Range]`, e
 
 **Q: How does the developer exception page get shown/hidden?**
 
-*(Original wording was garbled — corrected below.)* Controlled by the `ASPNETCORE_ENVIRONMENT` variable (commonly set in `launchSettings.json` for local dev). When it's `Development`, `env.IsDevelopment()` returns true, and you'd typically call `app.UseDeveloperExceptionPage()` to show detailed error info — which you do **not** want enabled in production.
+Controlled by the `ASPNETCORE_ENVIRONMENT` variable (commonly set in `launchSettings.json` for local dev). When it's `Development`, `env.IsDevelopment()` returns true, and you'd typically call `app.UseDeveloperExceptionPage()` to show detailed error info — which you do **not** want enabled in production.
 
 **Q: What is model binding?**
 
@@ -472,7 +448,7 @@ The process of automatically mapping data from an incoming HTTP request (route v
 
 **Q: What is CORS?**
 
-*(Fixed typo: "orgin" → "origin.")* **Cross-Origin Resource Sharing** — a browser-enforced security mechanism that restricts a web page/script from making requests to a different origin (domain/scheme/port) than the one that served the page, unless the target server explicitly allows it via CORS headers.
+**Cross-Origin Resource Sharing** — a browser-enforced security mechanism that restricts a web page/script from making requests to a different origin (domain/scheme/port) than the one that served the page, unless the target server explicitly allows it via CORS headers.
 
 **Q: In-memory caching vs. distributed caching?**
 
@@ -490,8 +466,6 @@ The process of automatically mapping data from an incoming HTTP request (route v
 
 **Q: Types of authentication?**
 
-
-
 - **Cookie-based authentication** — server issues a cookie after login; browser sends it back on subsequent requests.
 - **Token-based authentication (e.g., JWT)** — server issues a signed token; client sends it in the `Authorization` header on each request.
 - **Windows authentication** — uses the OS-level Windows credentials (common in intranet/enterprise apps).
@@ -499,15 +473,12 @@ The process of automatically mapping data from an incoming HTTP request (route v
 
 **Q: What is JWT authentication?**
 
-
-
 - **JWT (JSON Web Token)** is a compact, signed token format.
 - Client sends username/password; server validates the credentials and, if valid, returns a **signed JWT token** to the client (**not** the signing secret/key itself — that must stay private on the server).
 - The client stores this token and sends it on subsequent requests in the `Authorization: Bearer <token>` header.
 - The server verifies the token's signature (using its own secret/key) and, if valid, processes the request.
 
 **Q: REST vs. "RESTful"?**
-
 
 **REST** (Representational State Transfer) is an architectural style defined by a set of constraints. **"RESTful"** is just the adjective used to describe an API that actually follows REST's constraints — there's no separate technical definition; every "RESTful API" *is* a REST API.
 
@@ -548,8 +519,6 @@ REST's core constraints:
 
 **Q: Types of constructors?**
 
-*(Original note — "parameter constructor - take di" — was unclear; clarified below.)*
-
 - **Default constructor** — added automatically by the compiler if you don't define any constructor yourself; takes no parameters.
 - **Parameterized constructor** — takes arguments used to initialize the object's fields; this is also the mechanism behind **constructor-based dependency injection** (the DI container passes in the object's dependencies as constructor parameters).
 - **Static constructor** — runs once, automatically, before the class is used for the first time (either on first instantiation or first access of a static member); used to initialize static members.
@@ -570,16 +539,12 @@ REST's core constraints:
 
 **Q: What are generics, and what do they actually give you?**
 
-*(Important correction: the original notes had this **backwards**. Generics *provide* type safety and *avoid* boxing overhead — those downsides actually describe the old, pre-generics collections like `ArrayList`/`Hashtable`, which generics were introduced specifically to fix.)*
-
 Generics let you define a class, method, or property with a **placeholder type** — you don't have to commit to a specific data type until the generic is actually used (e.g., `List<T>` becomes `List<int>` or `List<string>`).
 
 **What generics actually give you (corrected):**
 - **Compile-time type safety** — the compiler enforces the type at usage, catching mismatches before runtime instead of throwing a runtime `InvalidCastException`.
 - **No boxing/unboxing overhead for value types** — a `List<int>` stores actual `int`s directly; the old `ArrayList` stored everything as `object`, meaning every `int` had to be boxed onto the heap and unboxed on retrieval — real, measurable performance overhead.
 - **Better performance overall**, precisely *because* it avoids that boxing and avoids runtime type-checking/casting.
-
-*(For reference: `ArrayList`/`Hashtable` — the pre-generic collections — are the ones with no compile-time type safety, boxing overhead for value types, and the risk of a runtime `InvalidCastException` if you cast a retrieved `object` to the wrong type. That's the description that had gotten attached to generics by mistake in the original notes.)*
 
 ---
 
@@ -604,7 +569,7 @@ Generics let you define a class, method, or property with a **placeholder type**
 
 **Q: What is the Unit of Work pattern?**
 
- A pattern that groups multiple repository operations (e.g., several inserts/updates across different repositories) into a **single transaction**, ensuring they all succeed or all fail together, and committing them with one `SaveChanges()` call rather than each repository saving independently. Commonly paired with the Repository pattern — repositories handle *how* to query/persist, Unit of Work coordinates *when* changes actually get committed.
+A pattern that groups multiple repository operations (e.g., several inserts/updates across different repositories) into a **single transaction**, ensuring they all succeed or all fail together, and committing them with one `SaveChanges()` call rather than each repository saving independently. Commonly paired with the Repository pattern — repositories handle *how* to query/persist, Unit of Work coordinates *when* changes actually get committed.
 
 ---
 
@@ -618,7 +583,7 @@ Generics let you define a class, method, or property with a **placeholder type**
 
 **Q: What is `ConfigureAwait(false)` specifically doing?**
 
-
+By default, `await` tries to resume execution back on the **original synchronization context** (e.g., the original request context in some frameworks, or UI thread in desktop apps). Calling `.ConfigureAwait(false)` tells the awaiter **not** to capture that context — the continuation can resume on **any available thread pool thread** instead. Commonly used in library code to avoid unnecessary context-switching overhead and potential deadlocks, since library code usually doesn't care which thread it resumes on.
 
 **Q: `async void` methods — what's the problem?**
 
@@ -636,14 +601,10 @@ Generics let you define a class, method, or property with a **placeholder type**
 
 **Q: What is boxing and unboxing?**
 
-
-
 - **Boxing** — converting a value type (e.g., `int`) into a reference type by allocating a new object on the **heap** to wrap it.
 - **Unboxing** — the reverse: extracting the value back out of that heap object. The runtime checks that the object's actual type matches the target value type, then copies the value back onto the **stack**. (An invalid cast here throws `InvalidCastException`.)
 
 **Q: Where are static variables stored in .NET?**
-
-
 
 - Static fields do **not** live on the stack, and they don't live in the regular object heap the way instance objects do either.
 - They're stored in memory associated with the **type itself**, managed by the CLR (in what's often called the **high-frequency/loader heap**, tied to the type's metadata) — allocated once when the type is loaded, for the lifetime of the app domain.
@@ -651,8 +612,6 @@ Generics let you define a class, method, or property with a **placeholder type**
 - The `.data`/`.bss` segment concept is specific to compiled native binaries (C/C++, ELF/PE layout) — .NET's managed runtime doesn't expose or use that model for your code's static fields.
 
 **Q: What does the `in` keyword do (as a parameter modifier)?**
-
-*(Important correction: the original notes described `in` as "a variable not assigned a value" — that's actually closer to a description of `out`. `in` means something different entirely. Corrected below.)*
 
 `in` passes an argument to a method **by reference**, but the method is **not allowed to modify it** — a read-only reference parameter. It's mainly a performance optimization: for a large `struct`, passing `in` avoids copying the whole struct (like `ref` would), while the `in` keyword's compiler-enforced immutability prevents the callee from accidentally mutating the caller's data.
 
@@ -682,11 +641,9 @@ void Process(in LargeStruct data) { /* can read data, cannot assign to data.Fiel
 
 **Q: `var` vs. `dynamic`?**
 
-*(One line needed a version-dependent caveat — noted below.)*
-
 - **`var`** — type is resolved at **compile time**, inferred from the initializer, and fixed from then on. Can't be initialized to `null` alone (compiler has nothing to infer the type from). Can't be used for class-level fields, only local variables. Can't be used as a method's return type.
 - **`dynamic`** — type resolution is deferred to **runtime**; the compiler does minimal checking, and errors that would normally be compile-time type errors instead show up as runtime exceptions.
-- *Lambda caveat:* the original notes said `var` can never be used with a lambda — that was true through older C# versions, but from **C# 10 onward**, `var` **can** be used with a lambda expression if the compiler can infer a "natural type" for it (e.g., `var f = (int x) => x + 1;` infers a `Func<int,int>`-like delegate type). Worth mentioning the version if this comes up.
+- *Lambda caveat:* `var` couldn't be used with a lambda through older C# versions, but from **C# 10 onward**, `var` **can** be used with a lambda expression if the compiler can infer a "natural type" for it (e.g., `var f = (int x) => x + 1;` infers a `Func<int,int>`-like delegate type). Worth mentioning the version if this comes up.
 
 ---
 
@@ -722,17 +679,15 @@ A scoped service is meant to live for one request only. If a **singleton** captu
 
 **Q: What is a distributed lock in Cosmos DB?**
 
-*(Left blank in the original notes — filled in below.)* Cosmos DB doesn't have a dedicated built-in "lock" primitive, but a distributed lock can be implemented on top of it — typically using **optimistic concurrency control** via the document's `_etag` field: a process reads a document, attempts an update conditioned on the `_etag` matching what it read, and the write fails if another process already changed it in between (meaning someone else "holds the lock"). This pattern is used to coordinate exclusive access across multiple instances/processes without a separate locking service.
+Cosmos DB doesn't have a dedicated built-in "lock" primitive, but a distributed lock can be implemented on top of it — typically using **optimistic concurrency control** via the document's `_etag` field: a process reads a document, attempts an update conditioned on the `_etag` matching what it read, and the write fails if another process already changed it in between (meaning someone else "holds the lock"). This pattern is used to coordinate exclusive access across multiple instances/processes without a separate locking service.
 
 **Q: What is a blob lease?**
 
-*(Left blank in the original notes — filled in below.)* An **Azure Blob Storage** feature (not Cosmos DB) that lets a client acquire **exclusive write access** to a blob or container for a renewable duration (15–60 seconds, or infinite until explicitly released). While a lease is held, other clients attempting to write to or delete that blob are rejected — commonly used to implement a distributed lock, since only one process can successfully hold the lease at a time.
+An **Azure Blob Storage** feature (not Cosmos DB) that lets a client acquire **exclusive write access** to a blob or container for a renewable duration (15–60 seconds, or infinite until explicitly released). While a lease is held, other clients attempting to write to or delete that blob are rejected — commonly used to implement a distributed lock, since only one process can successfully hold the lease at a time.
 
 ---
 
 ### Sample: Implementing `IDisposable`
-
-
 
 ```csharp
 public class FileHandler : IDisposable
@@ -759,3 +714,5 @@ public class FileHandler : IDisposable
     }
 }
 ```
+
+---

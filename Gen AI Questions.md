@@ -16,8 +16,6 @@ Use **fine-tuning** when:
 
 **Q: When should you move from prompt engineering to fine-tuning?**
 
-*(Note: the original notes phrased this as "when to move away from fine-tuning," but the listed signals are actually reasons to move **toward** fine-tuning — away from relying on ever-longer prompts. Corrected below.)*
-
 - Your prompt has grown past ~3,000 tokens trying to cover every edge case.
 - Output is still inconsistent even with strong, detailed instructions.
 - Long prompts are hurting latency and you need faster responses.
@@ -262,8 +260,6 @@ Retrieve using small, precise child chunks (good for matching), but pass the lar
 
 ## Advanced RAG Techniques
 
-*A couple of these were garbled in the original notes — corrected and clarified below.*
-
 **Q: What is HyDE (Hypothetical Document Embeddings)?**
 
 Instead of embedding the user's raw question, ask the LLM to first generate a **hypothetical answer document** for that question. Embed that hypothetical document and use it to search the vector store — hypothetical answers tend to be closer in embedding space to real answer documents than a short question is. Retrieve the real documents this way, then generate the final answer using the original question + retrieved documents.
@@ -274,13 +270,11 @@ Generate several reworded variations (sub-queries) of the user's original query 
 
 **Q: What is Step-Back RAG (Step-Back Prompting)?**
 
-*(Original notes had this as "Setback RAG" — it's "Step-Back.")* From the original, specific question, use few-shot prompting to have the LLM generate a more general, higher-level "step-back" question. Retrieve using that broader question to pull in useful background/context, then use both the step-back context and the original question to generate the final answer.
+From the original, specific question, use few-shot prompting to have the LLM generate a more general, higher-level "step-back" question. Retrieve using that broader question to pull in useful background/context, then use both the step-back context and the original question to generate the final answer.
 
 **Q: What is Corrective RAG (CRAG)?**
 
 Retrieve documents, then have the LLM (or a lightweight evaluator) **score their relevance**. If relevance is above a threshold, proceed straight to generation using those documents. If it's below threshold, treat retrieval as having failed — fall back to another source (e.g., a web search) to get better context, then generate.
-
-*(Note: the original notes had a second, separate entry called "Active RAG" describing this exact same retrieve-then-threshold-then-fallback-to-web-search flow, and a vaguer "Corrective RAG" entry elsewhere. These describe the same CRAG pattern — I've merged them here to avoid confusion. "Active RAG"/FLARE is actually a related but distinct idea: the LLM decides *during generation* whether it needs to pause and retrieve more information.)*
 
 **Q: What is intent-specific RAG?**
 
@@ -311,8 +305,6 @@ Measures whether the model's output flows smoothly and reads naturally, human-li
 ## Serving Infrastructure
 
 **Q: How does Uvicorn handle endpoints?**
-
-*(Original notes implied all endpoints run in the event loop — that's only true for async ones. Corrected below.)*
 
 - Uvicorn is an ASGI server built on an event loop running in the main thread.
 - Endpoints defined as `async def` run **directly in the event loop**, sharing the single thread with everything else — so a blocking call inside one will stall the whole server.
@@ -375,7 +367,7 @@ Multiple agents collaborate to generate recommendations for users — useful in 
 
 **Q: What is Azure AI Foundry agents?**
 
-*(Note: "Foudry" → "Foundry.")* Supports different agent types, including **declarative agents** (configuration-driven, no custom code) and **hosted agents** (custom code hosted and orchestrated by the platform).
+Supports different agent types, including **declarative agents** (configuration-driven, no custom code) and **hosted agents** (custom code hosted and orchestrated by the platform).
 
 **Q: What is Microsoft 365 Copilot / Work IQ integration?**
 
@@ -406,7 +398,7 @@ Each topic has a defined set of **trigger phrases**; the agent uses NLP to match
 
 **Q: How would you design a Microsoft Teams channel with agentic AI?**
 
-*(Note: Azure AI Foundry was rebranded to **Microsoft Foundry**, and the Teams integration path has evolved — elaborated below.)*
+*(Azure AI Foundry was rebranded to **Microsoft Foundry**, and the Teams integration path has evolved.)*
 
 There are two practical approaches:
 
@@ -512,11 +504,11 @@ Assigned at the **subscription level, per region, per model** — expressed as:
 
 **Q: What is Pydantic?**
 
-*(Original note was too thin to be useful as an answer — expanded below.)* A Python library for **data validation and settings management using type hints**. You define a model as a class with typed fields; Pydantic validates incoming data against those types at runtime, coerces compatible types, and raises clear validation errors otherwise. In AI/agent systems specifically, it's commonly used to force an LLM's output into a **structured, guaranteed-shape response** (e.g., "return a `PatientSummary` object with these exact fields") rather than trusting free-form text.
+A Python library for **data validation and settings management using type hints**. You define a model as a class with typed fields; Pydantic validates incoming data against those types at runtime, coerces compatible types, and raises clear validation errors otherwise. In AI/agent systems specifically, it's commonly used to force an LLM's output into a **structured, guaranteed-shape response** (e.g., "return a `PatientSummary` object with these exact fields") rather than trusting free-form text.
 
 **Q: What is LangGraph?**
 
-*(Original note — "automate complex workflow" — was too vague to be a real answer. Expanded below.)* A framework (from the LangChain team) for building **stateful, multi-step AI workflows and multi-agent systems as a graph** of nodes and edges, rather than a simple linear chain. Key capabilities that distinguish it from a basic LangChain chain:
+A framework (from the LangChain team) for building **stateful, multi-step AI workflows and multi-agent systems as a graph** of nodes and edges, rather than a simple linear chain. Key capabilities that distinguish it from a basic LangChain chain:
 - Supports **cycles/loops** (e.g., an agent retrying or re-planning), not just straight-line execution.
 - Built-in **state persistence** across steps, so long-running or resumable workflows are possible.
 - Native support for **human-in-the-loop** checkpoints (pause and wait for approval before continuing).
@@ -607,8 +599,6 @@ Feeds the query and a candidate document **together** into a transformer, which 
 
 **Q: What is ColBERT (as a reranking option)?**
 
-*(Correcting a contradiction from the notes: ColBERT was listed with "pros: extremely fast retrieval" — that's not accurate relative to standard dense retrieval. Corrected below.)*
-
 Encodes the query and document into **one vector per token** (rather than one vector for the whole document), then checks each query token against every document token to find the best match, and sums those best-match scores.
 
 - **Pro:** meaningfully more accurate than single-vector dense retrieval, since it preserves fine-grained, token-level detail.
@@ -631,7 +621,7 @@ The process of breaking a string of text into smaller units called tokens (which
 
 **Q: What does "contextualization" mean for embeddings?**
 
-*(Fixed model name typo: "text-embedding-03" → "text-embedding-3".)* Each token starts with a fixed ID. That ID is passed into a model (e.g., BERT, or OpenAI's `text-embedding-3` family) and moves through the model's **attention layers**, where the model looks at surrounding words and adjusts the token's representation accordingly — so the same word gets a different vector depending on its context (e.g., "bank" near "river" vs. "bank" near "loan").
+Each token starts with a fixed ID. That ID is passed into a model (e.g., BERT, or OpenAI's `text-embedding-3` family) and moves through the model's **attention layers**, where the model looks at surrounding words and adjusts the token's representation accordingly — so the same word gets a different vector depending on its context (e.g., "bank" near "river" vs. "bank" near "loan").
 
 **Q: What is the `[CLS]` token?**
 
@@ -685,7 +675,7 @@ A program that exposes context, tools, or data to an MCP client, following the M
 
 **Q: What is JSON-RPC?**
 
-*(Original note was a bit too simplified — expanded below.)* A lightweight remote procedure call protocol encoded in JSON — it lets one program ask another to execute a specific function (with named parameters) over a transport (like stdio or HTTP), and get a structured JSON response back. MCP uses JSON-RPC 2.0 as its underlying message format.
+A lightweight remote procedure call protocol encoded in JSON — it lets one program ask another to execute a specific function (with named parameters) over a transport (like stdio or HTTP), and get a structured JSON response back. MCP uses JSON-RPC 2.0 as its underlying message format.
 
 **Q: What are MCP's transport mechanisms?**
 
@@ -736,15 +726,11 @@ Pauses graph execution at that point and saves the current state to a **checkpoi
 
 **Q: Data Scientist vs. ML Engineer vs. AI Engineer?**
 
-*(Fixed a label mismatch — the question asked "AI Engineer" but the original notes' answer heading said "AI Agents.")*
-
 - **Data Scientist** — analyzes data using statistics, Python, and SQL; works mostly in notebooks to generate insights.
 - **ML Engineer** — deploys ML models to production; MLOps, Docker/Kubernetes, APIs, ML pipelines.
 - **AI Engineer** — builds AI-powered applications; LLM selection, LangChain/LangGraph, and shipping AI products end-to-end.
 
 **Q: What's a typical AI Engineer tech stack?**
-
-*(Fixed a likely typo: "TGI, FastAPI, LLM" → the third item is almost certainly **vLLM**, a real high-throughput LLM inference/serving engine — "LLM" alone isn't a specific tool.)*
 
 - **Foundation models** — OpenAI GPT-4o, Anthropic Claude, Google Gemini, Meta Llama.
 - **Orchestration frameworks** — LangChain, LangGraph, CrewAI, AutoGen.
@@ -798,8 +784,6 @@ Pauses graph execution at that point and saves the current state to a **checkpoi
 
 **Q: Design a RAG system for a company with 100k documents.**
 
-*(Fixed a typo: "beautiful soap" → **BeautifulSoup**, the Python HTML/XML parsing library.)*
-
 1. **Ingestion pipeline** — document parsing (e.g., BeautifulSoup for HTML), intelligent/semantic chunking, metadata extraction, embedding generation, vector store selection.
 2. **Retrieval strategy** — hybrid search, reranking.
 3. **Query processing** — context compression, citation generation, faithfulness checking.
@@ -837,8 +821,6 @@ HyDE solves a fundamental mismatch in RAG: user queries are short, but knowledge
 
 **Q: How do you handle multi-hop questions in RAG (requiring information from multiple documents)?**
 
-*(Renumbered — the original notes skipped "2" and were out of order.)*
-
 1. **Iterative retrieval** — answer a sub-question, use that answer to inform the next retrieval, repeat until all hops are resolved.
 2. **Sub-question decomposition** — an LLM breaks a complex query into sub-questions, answers each separately, then synthesizes a final answer.
 3. **Knowledge graph RAG** — represent documents as a graph and traverse edges to find connected information across documents.
@@ -855,7 +837,7 @@ Production agents face tool failures constantly — API timeouts, rate limits, i
 1. **Structured errors, not raised exceptions** — return something like `{success: false, error: "rate_limit", retry_after: 10}` instead of throwing, so the agent can read the error type and decide what to do next.
 2. **Retry logic** — exponential backoff for transient errors (rate limits, timeouts), capped at a small number of retries (e.g., max 3).
 3. **Graceful delegation** — surface an LLM-generated, human-readable error message rather than a raw stack trace.
-4. **Step/cost limits** *(clarifying a duplication in the original notes — "error budget" and "max hard limit" were described identically as "50 steps"; these are actually two different controls)*:
+4. **Step/cost limits** — "error budget" and "max hard limit" are two different controls:
    - **Error budget** — how many *failed* tool calls/errors the agent tolerates before giving up or escalating to a human (e.g., stop after 3 consecutive tool failures).
    - **Max step hard limit** — a cap on the *total* number of steps the agent can take overall, regardless of success or failure (e.g., never exceed 50 steps in one run).
 
@@ -937,8 +919,6 @@ A platform (from the LangChain team) for tracing, debugging, evaluating, and mon
 
 **Q: Multi-agent anti-patterns?**
 
-*(Fixed a likely typo: "shared state without clock" → **"shared state without a lock,"** describing a concurrency bug, not a timing issue.)*
-
 1. **Over-agentification** — using an agent for a task that's actually deterministic and doesn't need one.
 2. **Infinite loops** — no max step count, no timeout, no cost limit.
 3. **Shared state without a lock** — multiple agents writing to shared state concurrently, corrupting it (a classic race condition).
@@ -982,8 +962,6 @@ Trace every agent step individually, aggregate operational metrics (latency, err
 
 **Q: Sync vs. async agent execution?**
 
-*(Left blank in the original notes — filled in below.)*
-
 - **Sync (blocking)** execution — each step/tool call must fully complete before the agent (and the user waiting on it) can proceed to the next one; simpler to reason about, but doesn't scale well under load since each request ties up resources while waiting.
 - **Async (non-blocking)** execution — the agent can await I/O (tool calls, LLM calls) without blocking a thread, allowing many concurrent user sessions and parallel tool calls (e.g., calling several independent tools at once instead of sequentially) — essential for production throughput at scale.
 
@@ -991,7 +969,7 @@ Trace every agent step individually, aggregate operational metrics (latency, err
 
 - Multi-agent (and multi-instance) deployment for redundancy.
 - **LLM provider failover** — fall back to a secondary provider/model if the primary is down.
-- **Tool circuit breakers** — each tool gets its own circuit breaker; *(clarifying garbled original wording)* if a tool's failure rate crosses a threshold, the circuit "opens" and the system falls back to a cached/last-known-good response instead of continuing to call a failing tool.
+- **Tool circuit breakers** — each tool gets its own circuit breaker; if a tool's failure rate crosses a threshold, the circuit "opens" and the system falls back to a cached/last-known-good response instead of continuing to call a failing tool.
 - **Graceful degradation** — reduced functionality rather than total failure when a dependency is down.
 
 **Q: How do you evaluate and debug agent trajectories?**
@@ -1005,7 +983,7 @@ Reproduce the failure → isolate the specific failing component → reproduce i
 
 **Q: What is LLM-as-judge bias, and what are the common biases?**
 
-*(Left blank/garbled in the original notes — filled in below.)* Since an LLM is being used to *evaluate* another LLM's output, the judge itself can introduce systematic biases:
+Since an LLM is being used to *evaluate* another LLM's output, the judge itself can introduce systematic biases:
 
 - **Position bias** — favoring whichever answer appears first (or last) when comparing two outputs, regardless of actual quality.
 - **Verbosity bias** — favoring longer, more detailed-looking answers even when they aren't more correct.
@@ -1034,8 +1012,6 @@ A single `.py` file that groups related code together — functions, classes, an
 **Q: What is a package?**
 
 A directory containing multiple modules, letting you group related modules together under a single namespace.
-
-*(Slight update to the original note: historically Python required an `__init__.py` file inside a folder for it to be recognized as a package — this told Python "this is a package, not just a random directory," and could also run initialization code or define what gets exported. Since Python 3.3+, "namespace packages" are supported, which don't strictly require `__init__.py`. That said, including `__init__.py` is still common practice and the safer/more explicit choice, especially in older or larger codebases.)*
 
 ---
 
@@ -1082,8 +1058,6 @@ Extracts a specific portion of a sequence (string, list, tuple, etc.) using `seq
 
 **Q: How is a Python list actually stored in memory?**
 
-*(Original note was a bit self-contradictory — corrected below.)*
-
 A Python list is implemented as a **dynamic array of references (pointers)** — that array of pointers *is* stored in one contiguous block of memory, but each pointer just points to wherever the actual object happens to live in memory (objects themselves are scattered around the heap, not stored inline in the list). This is different from, say, a C array of raw integers, where the actual values sit contiguously — a Python list's contiguous block holds *addresses*, not the values themselves.
 
 **Q: Class basics?**
@@ -1094,15 +1068,13 @@ A Python list is implemented as a **dynamic array of references (pointers)** —
 
 **Q: What is a coroutine?**
 
-*(Important correction: the original notes conflated coroutines with the GIL — these are unrelated concepts. Corrected below.)*
-
 A coroutine is a specialized function that can **pause its execution** and **resume later**, letting other code run in the meantime — the basis of Python's `async`/`await` model (cooperative, single-threaded concurrency).
 
 This is **not** the same thing as the GIL. The **GIL (Global Interpreter Lock)** is a separate mechanism in CPython that ensures only one thread executes Python bytecode at a time, regardless of whether coroutines are involved — it's about *threading*, not about coroutines. Coroutines achieve concurrency *without* needing multiple threads at all — a single thread cooperatively switches between coroutines at `await` points.
 
 **Q: What is a lambda function?**
 
-*(Fixed typo: "lamda" → "lambda".)* An anonymous (unnamed) function, typically for short, throwaway logic:
+An anonymous (unnamed) function, typically for short, throwaway logic:
 
 ```python
 f = lambda a: a * a
@@ -1137,8 +1109,6 @@ A self-contained directory for installing packages specific to one project, isol
 
 A file listing the libraries (and often their versions) a project depends on.
 
-*(Fixed a path typo in the activation command.)*
-
 ```bash
 python -m venv .venv
 
@@ -1159,8 +1129,6 @@ Records the **exact resolved version** of every package (and its dependencies) a
 
 **Q: What are Python's core built-in data structures?**
 
-*(Cleaned up a slightly garbled line on tuples.)*
-
 - **List** — ordered, mutable, allows duplicate values.
 - **Tuple** — ordered, immutable; generally faster than a list for fixed data, and — because it's immutable (hashable) — can be used as a dictionary key, unlike a list.
 - **Set** — unordered, no duplicates, extremely fast membership lookup (`in` checks).
@@ -1174,8 +1142,6 @@ Records the **exact resolved version** of every package (and its dependencies) a
 *(Worth knowing for an interview: since Python 3.7, the built-in `dict` officially guarantees insertion order as a language feature — so in modern Python, `dict` is technically both "key-value" and "ordered," which surprises people expecting dictionaries to be inherently unordered.)*
 
 **Q: What are generators in Python?**
-
-*(Left blank in the original notes — filled in below.)*
 
 A generator is a function that produces a sequence of values **lazily**, one at a time, instead of computing and returning them all at once. It uses `yield` instead of `return` — each call to `next()` on the generator resumes execution right where it left off, runs until the next `yield`, and pauses again.
 
