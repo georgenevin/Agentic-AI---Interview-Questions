@@ -730,13 +730,387 @@ Pauses graph execution at that point and saves the current state to a **checkpoi
 - **Integration points** — internal systems, third-party systems, and how authentication is handled across them.
 - **Governance & maintenance** — audit trails, feedback loops, and ongoing data security considerations.
 
-# Python Interview Preparation Notes
+---
 
-# Python Decorators
+## AI Engineering Roles & Tech Stack
 
-### Q. What is a decorator in Python?
+**Q: Data Scientist vs. ML Engineer vs. AI Engineer?**
 
-A decorator is a function that modifies or extends the behavior of another function without changing its original code.
+*(Fixed a label mismatch — the question asked "AI Engineer" but the original notes' answer heading said "AI Agents.")*
+
+- **Data Scientist** — analyzes data using statistics, Python, and SQL; works mostly in notebooks to generate insights.
+- **ML Engineer** — deploys ML models to production; MLOps, Docker/Kubernetes, APIs, ML pipelines.
+- **AI Engineer** — builds AI-powered applications; LLM selection, LangChain/LangGraph, and shipping AI products end-to-end.
+
+**Q: What's a typical AI Engineer tech stack?**
+
+*(Fixed a likely typo: "TGI, FastAPI, LLM" → the third item is almost certainly **vLLM**, a real high-throughput LLM inference/serving engine — "LLM" alone isn't a specific tool.)*
+
+- **Foundation models** — OpenAI GPT-4o, Anthropic Claude, Google Gemini, Meta Llama.
+- **Orchestration frameworks** — LangChain, LangGraph, CrewAI, AutoGen.
+- **Vector databases** — Pinecone, Qdrant, ChromaDB.
+- **Serving infrastructure** — TGI (Text Generation Inference), FastAPI, vLLM.
+- **Prompt management** — Langfuse, LangSmith.
+- **Evaluation** — RAGAS, LLM-as-judge.
+- **Cloud AI services** — Azure OpenAI, AWS Bedrock (Google Vertex AI is the other major one worth naming).
+
+---
+
+## Building & Deploying AI Projects
+
+**Q: How do you approach building an AI project from scratch?**
+
+1. Define the problem clearly.
+2. Understand the data — format (database, PDF, API), volume, and quality.
+3. Build a simple prototype.
+4. Evaluate — accuracy, precision/recall, user satisfaction.
+5. Improve iteratively.
+6. Deploy — with guardrails, security review, and monitoring in place.
+
+**Q: How do you choose the right LLM for a production use case?**
+
+1. **Capability** — does the model actually handle the task? Test on your real use case, not a generic benchmark.
+2. **Speed** (latency).
+3. **Cost** — input vs. output token pricing (often priced differently).
+4. **Context window** — how much text needs to fit in a single call.
+5. **Privacy & compliance** requirements.
+6. **Reliability** — what uptime does the provider guarantee, and what's the fallback plan if it's down?
+
+**Q: GPT vs. Claude vs. Gemini vs. Llama vs. Mistral — when to use each?**
+
+*(Worth a caveat: model capabilities and relative strengths shift fast — verify against current benchmarks before quoting this in an interview rather than treating it as fixed.)*
+
+- **GPT** — strong for agentic use, tool calling, structured data extraction.
+- **Claude** — strong at long-document analysis, code generation, complex reasoning.
+- **Gemini Flash** — fastest and cheapest for multimodal, real-time applications.
+- **Llama** — free to use, customizable, can run on-premises.
+- **Mistral** — strong at European languages, good cost-to-performance ratio.
+
+**Q: When should you use prompt engineering vs. RAG vs. fine-tuning?**
+
+- **Prompt engineering** — when the task is solvable with good instructions and under ~500 examples.
+- **RAG** — when you need internal/company data, recent events, or knowledge that changes frequently and must stay up to date.
+- **Fine-tuning** — when you need a specific output format/style that prompting can't achieve consistently, and you have 1,000+ examples.
+
+---
+
+## Production RAG Design
+
+**Q: Design a RAG system for a company with 100k documents.**
+
+*(Fixed a typo: "beautiful soap" → **BeautifulSoup**, the Python HTML/XML parsing library.)*
+
+1. **Ingestion pipeline** — document parsing (e.g., BeautifulSoup for HTML), intelligent/semantic chunking, metadata extraction, embedding generation, vector store selection.
+2. **Retrieval strategy** — hybrid search, reranking.
+3. **Query processing** — context compression, citation generation, faithfulness checking.
+4. **Monitoring** — RAGAS metrics, user feedback, retrieval quality dashboards.
+
+**Q: Design a multi-tenant AI platform where different customers have isolated data and models.**
+
+1. **Data isolation** — separate vector store/collection per tenant.
+2. **Prompt isolation** — tenant-specific system prompts.
+3. **Model isolation** — potentially different models/fine-tunes per tenant.
+4. **Observability isolation** — each tenant sees only their own usage metrics and cost tracking.
+
+**Q: How do you increase LLM response speed?**
+
+1. **Semantic caching** — often 30–40% of queries are duplicates or near-duplicates; an instant cached response means zero additional LLM cost.
+2. **Model routing** — e.g., ~70% of queries to a cheap model, ~25% to a medium model, ~5% to your most capable (and expensive) model.
+3. **Async processing** — push non-real-time jobs to a queue so they don't block the user.
+4. **Rate limiting + circuit breaking** — prevent cascading failures.
+5. **Auto-scaling.**
+6. **Multi-region deployment.**
+
+**Q: Common RAG failure modes?**
+
+1. **Retrieval failure** — wrong chunks retrieved. *Fix:* hybrid search, better chunking strategy.
+2. **Faithfulness failure** — the LLM ignores retrieved chunks and answers from its own training knowledge instead. *Fix:* RAGAS faithfulness monitoring, guardrails.
+3. **Context window overflow** — too much retrieved context causes the model to "lose" information in the middle (the well-documented "lost in the middle" effect).
+4. **Stale knowledge** — the knowledge base isn't updated when source documents change. *Fix:* document freshness monitoring.
+5. **Query-document mismatch** — the user asks in a different style/phrasing than the documents are written in. *Fix:* query rewriting.
+
+**Q: What is HyDE, and when do you use it to improve RAG?**
+
+HyDE solves a fundamental mismatch in RAG: user queries are short, but knowledge documents are long-form answers — so directly embedding the query and comparing it to document embeddings often works poorly.
+
+**Solution:** take the user's query, use an LLM to generate a *hypothetical* answer, embed that hypothetical answer (not the raw query), and search the vector DB using that embedding — then return the real matching documents. It works because the hypothetical answer is written in the same style as real documents, so vector similarity matching performs better than trying to match a short question directly against long-form content.
+
+**Q: How do you handle multi-hop questions in RAG (requiring information from multiple documents)?**
+
+*(Renumbered — the original notes skipped "2" and were out of order.)*
+
+1. **Iterative retrieval** — answer a sub-question, use that answer to inform the next retrieval, repeat until all hops are resolved.
+2. **Sub-question decomposition** — an LLM breaks a complex query into sub-questions, answers each separately, then synthesizes a final answer.
+3. **Knowledge graph RAG** — represent documents as a graph and traverse edges to find connected information across documents.
+4. **Summarize-then-index** — index both individual chunks *and* whole-document summaries; use the summaries to identify which documents are relevant, then drill into their chunks for detail.
+
+---
+
+## Agent Reliability & Error Handling
+
+**Q: How do you handle tool errors in a production agent?**
+
+Production agents face tool failures constantly — API timeouts, rate limits, invalid data returned.
+
+1. **Structured errors, not raised exceptions** — return something like `{success: false, error: "rate_limit", retry_after: 10}` instead of throwing, so the agent can read the error type and decide what to do next.
+2. **Retry logic** — exponential backoff for transient errors (rate limits, timeouts), capped at a small number of retries (e.g., max 3).
+3. **Graceful delegation** — surface an LLM-generated, human-readable error message rather than a raw stack trace.
+4. **Step/cost limits** *(clarifying a duplication in the original notes — "error budget" and "max hard limit" were described identically as "50 steps"; these are actually two different controls)*:
+   - **Error budget** — how many *failed* tool calls/errors the agent tolerates before giving up or escalating to a human (e.g., stop after 3 consecutive tool failures).
+   - **Max step hard limit** — a cap on the *total* number of steps the agent can take overall, regardless of success or failure (e.g., never exceed 50 steps in one run).
+
+**Q: How do you prevent an AI agent from entering an infinite loop?**
+
+*(This expands on the shorter version covered earlier — same core idea, more production detail.)*
+
+1. **Max step limit** — e.g., `max_steps = 25`; terminate and alert if exceeded.
+2. **Budget cap** — track cost per session; terminate if `session_cost > $2` (or whatever threshold fits your economics).
+3. **Repeat-action detection** — if the last 3 tool calls are identical, the agent is likely looping; detect and terminate with a clear reason (e.g., `repeat_action_detected`).
+4. **Per-step timeout** — each tool call must complete within a fixed time (e.g., ≤30 seconds) or gets cancelled — prevents the agent from hanging forever on an unresponsive API.
+5. **Restrict to approved tools only.**
+
+---
+
+## Agent Memory, Patterns & LangGraph
+
+**Q: What is agent memory? Explain the 4 types.**
+
+*(One common framework — worth noting some sources describe this slightly differently, e.g., adding a separate "semantic memory" for general facts.)*
+
+- **Sensory memory** — the current message/context within the immediate turn.
+- **Short-term memory** — the full conversation history within the current context window; limited by the model's context length.
+- **Long-term memory** — stored externally (a database), persisting beyond any single conversation.
+- **Episodic memory** — summaries of past sessions, stored externally, so the agent can recall "what happened last time" without re-reading the full transcript.
+
+**Q: What is Human-in-the-Loop (HITL)?**
+
+The agent requires human approval before taking **irreversible** actions (sending an email, making a payment, etc.). Also used for **output review** — e.g., an agent drafts a report or email, and a human approves it before it's published/sent.
+
+**Q: AI workflow vs. AI agent?**
+
+- **AI workflow** — predefined, fixed sequence of steps; the path is deterministic and known in advance.
+- **AI agent** — the model decides its own steps dynamically based on reasoning; the path is non-deterministic and can vary run to run.
+
+**Q: ReAct vs. Plan-and-Execute vs. Reflection agent patterns?**
+
+- **ReAct** (Reason + Act) — makes one decision at a time based on the current state; good for customer support and other interactive, adaptive tasks.
+- **Plan-and-Execute** — a planner LLM creates the full task breakdown up front, then an executor carries out each step; good for report generation, data analysis — tasks where the full plan can reasonably be known ahead of time.
+- **Reflection agent** — generates a response, critiques its own output, then revises — looping until a quality threshold is met; good for code generation, writing tasks.
+- **Hybrid** — use ReAct within each step of a Plan-and-Execute pipeline.
+
+**Q: What is the supervisor pattern (multi-agent)?**
+
+A supervisor agent routes tasks to sub-agents dynamically — best when the task has unclear/variable steps and needs content-based dynamic routing rather than a fixed pipeline.
+
+**Q: LangGraph — core building blocks?**
+
+- **State graph** — the shared state, typically a typed dictionary.
+- **Node** — a Python function representing one step.
+- **Edges** — define how execution moves between nodes.
+
+**Q: What is checkpointing (in LangGraph)?**
+
+Saving the complete state of execution at each step, so a run can be replayed, resumed, or forked later.
+
+- **Fault tolerance** — if the agent crashes at step 15 of 25, it can resume from step 15 rather than starting over.
+- **HITL support** — execution pauses at a human-approval step, and state persists until the human responds (even if that takes hours or days).
+- Every agent decision and state transition is recorded, enabling **time-travel debugging** (stepping back through prior states to see exactly what happened).
+
+**Q: What is the `Command` object in LangGraph?**
+
+Lets a node do two things in a single return value: **update the shared state** and **decide which node to call next** — combining state update and routing/control-flow decisions in one step, instead of needing separate mechanisms for each.
+
+**Q: What is LangSmith?**
+
+A platform (from the LangChain team) for tracing, debugging, evaluating, and monitoring LLM applications in production.
+
+**Q: How do you design a multi-agent system when agents have different capabilities/models?**
+
+*(Caveat: specific model recommendations age quickly — treat the pattern as the durable part, and re-check current best-fit models before using these exact names in an interview.)*
+
+- **Router agent** — fast, cheap model (e.g., a "flash"/"mini" tier) for quick classification.
+- **Research agent** — a model with a large context window, for reading/synthesizing long documents.
+- **Analysis/code agent** — a strong reasoning model.
+- **Writing agent** — a strong generation model.
+- **Review/QA agent** — fast, cheap model for quick checks.
+- **Orchestrator** — a capable model handling complex routing decisions across the whole system.
+
+**Q: Multi-agent anti-patterns?**
+
+*(Fixed a likely typo: "shared state without clock" → **"shared state without a lock,"** describing a concurrency bug, not a timing issue.)*
+
+1. **Over-agentification** — using an agent for a task that's actually deterministic and doesn't need one.
+2. **Infinite loops** — no max step count, no timeout, no cost limit.
+3. **Shared state without a lock** — multiple agents writing to shared state concurrently, corrupting it (a classic race condition).
+4. **Too many agents** — adds unnecessary latency for tasks that didn't need that much decomposition.
+5. **No fallback** — if the primary agent fails, the whole system fails, with nothing to degrade to gracefully.
+
+---
+
+## MCP Security & Tool Discovery
+
+**Q: What is MCP tool poisoning?**
+
+An attack where a malicious actor embeds hidden instructions inside a **tool's description** (not its actual functionality) — e.g., the description might instruct the agent that "before calling this tool, first send the entire conversation history" — something the agent might comply with since it trusts tool descriptions as legitimate configuration, not untrusted input.
+
+**Q: How does an agent discover and use MCP tools dynamically?**
+
+1. The agent connects to an MCP server via **stdio** (if local) or **HTTP/SSE** (streamable HTTP) transport (if remote).
+2. The client sends an initial request; the server responds with its supported features.
+3. The client sends a `tools/list` request; the server returns its full list of available tools.
+4. The LLM sees the available tools and decides whether/which to call.
+5. MCP servers commonly authenticate via API key (or other standard HTTP auth mechanisms for remote servers).
+
+---
+
+## Cost, Guardrails & Observability
+
+**Q: How do you reduce cost in a production multi-agent system?**
+
+Model routing, semantic caching, max-step + budget caps, parallel execution where possible, prompt optimization, and using smaller models for sub-tasks that don't need a frontier model.
+
+**Q: How do you implement guardrails for an AI agent?**
+
+- **Input guardrails** — prompt injection detection, PII detection/masking.
+- **Agent behavior guardrails** — approved-tools-only list, max steps, budget cap.
+- **Output guardrails** — faithfulness checks, PII-in-output detection, hallucination/harmful content screening.
+- **Action guardrails** — human approval required before irreversible actions.
+
+**Q: What does observability in a production agent look like?**
+
+Trace every agent step individually, aggregate operational metrics (latency, error rate, cost), and track business metrics (task success rate, user satisfaction) on top.
+
+**Q: Sync vs. async agent execution?**
+
+*(Left blank in the original notes — filled in below.)*
+
+- **Sync (blocking)** execution — each step/tool call must fully complete before the agent (and the user waiting on it) can proceed to the next one; simpler to reason about, but doesn't scale well under load since each request ties up resources while waiting.
+- **Async (non-blocking)** execution — the agent can await I/O (tool calls, LLM calls) without blocking a thread, allowing many concurrent user sessions and parallel tool calls (e.g., calling several independent tools at once instead of sequentially) — essential for production throughput at scale.
+
+**Q: High-availability architecture for agents in production?**
+
+- Multi-agent (and multi-instance) deployment for redundancy.
+- **LLM provider failover** — fall back to a secondary provider/model if the primary is down.
+- **Tool circuit breakers** — each tool gets its own circuit breaker; *(clarifying garbled original wording)* if a tool's failure rate crosses a threshold, the circuit "opens" and the system falls back to a cached/last-known-good response instead of continuing to call a failing tool.
+- **Graceful degradation** — reduced functionality rather than total failure when a dependency is down.
+
+**Q: How do you evaluate and debug agent trajectories?**
+
+- **Trajectory evaluation** — did the agent follow the correct sequence of steps/tool calls to reach the answer, not just whether the final answer happened to be right?
+- **Tool accuracy** — did it call the correct tools, with correct arguments?
+
+**Q: How do you debug a failing agent?**
+
+Reproduce the failure → isolate the specific failing component → reproduce it in isolation (e.g., using LangGraph's time-travel/checkpoint replay) → add that case as a permanent regression test.
+
+**Q: What is LLM-as-judge bias, and what are the common biases?**
+
+*(Left blank/garbled in the original notes — filled in below.)* Since an LLM is being used to *evaluate* another LLM's output, the judge itself can introduce systematic biases:
+
+- **Position bias** — favoring whichever answer appears first (or last) when comparing two outputs, regardless of actual quality.
+- **Verbosity bias** — favoring longer, more detailed-looking answers even when they aren't more correct.
+- **Self-preference bias** — a model rating outputs more favorably when they're stylistically similar to its own outputs (e.g., a model from the same family as itself).
+
+**Mitigations:** randomize the order of compared outputs, control/normalize for response length, use multiple different judge models and cross-check, and periodically calibrate judge scores against human-labeled examples.
+
+**Q: What does CI/CD look like for an agent application?**
+
+1. Unit tests.
+2. Integration tests.
+3. Golden dataset evaluation (run against your curated golden set before deploying).
+4. Regression checks (make sure nothing that used to work broke).
+5. **Canary deployment** — e.g., route 5% of traffic to the new version, 95% to the current stable version, and monitor before a full rollout.
+
+---
+
+# Python
+
+### Modules & Packages
+
+**Q: What is a module in Python?**
+
+A single `.py` file that groups related code together — functions, classes, and variables — that can be imported and reused elsewhere.
+
+**Q: What is a package?**
+
+A directory containing multiple modules, letting you group related modules together under a single namespace.
+
+*(Slight update to the original note: historically Python required an `__init__.py` file inside a folder for it to be recognized as a package — this told Python "this is a package, not just a random directory," and could also run initialization code or define what gets exported. Since Python 3.3+, "namespace packages" are supported, which don't strictly require `__init__.py`. That said, including `__init__.py` is still common practice and the safer/more explicit choice, especially in older or larger codebases.)*
+
+---
+
+### Core Language Basics
+
+**Q: What is pandas?**
+
+A library used for data manipulation and analysis — built around the `DataFrame`, a table-like structure for working with structured/tabular data.
+
+**Q: What types of loops does Python have?**
+
+- `for` loop
+- `while` loop
+- **List comprehension** — a compact, "one-line loop" way to build a list.
+
+```python
+squares = [x * x for x in range(10)]
+```
+
+**Q: `map` vs. `filter`?**
+
+- **`map(function, iterable)`** — applies `function` to every item in `iterable`, returning an iterator of the results.
+- **`filter(function, iterable)`** — keeps only the items where `function(item)` returns `True`, discarding the rest.
+
+**Q: How does Python handle indentation?**
+
+Python uses whitespace (indentation) to define code blocks, instead of curly braces `{}` like many other languages.
+
+**Q: What is `self`?**
+
+Refers to the current instance of a class — used inside instance methods to access that specific object's variables and methods.
+
+**Q: What is a tuple?**
+
+An ordered, **immutable** sequence — once created, it cannot be changed. Defined using parentheses, e.g. `(1, 2, 3)`.
+
+**Q: How does slicing work?**
+
+Extracts a specific portion of a sequence (string, list, tuple, etc.) using `sequence[start:stop:step]`.
+
+- `sequence[::2]` — every 2nd element.
+- `data[-3:]` — the last 3 elements (negative indices count backward from the end).
+- `name[::-1]` — reverses the sequence.
+
+**Q: How is a Python list actually stored in memory?**
+
+*(Original note was a bit self-contradictory — corrected below.)*
+
+A Python list is implemented as a **dynamic array of references (pointers)** — that array of pointers *is* stored in one contiguous block of memory, but each pointer just points to wherever the actual object happens to live in memory (objects themselves are scattered around the heap, not stored inline in the list). This is different from, say, a C array of raw integers, where the actual values sit contiguously — a Python list's contiguous block holds *addresses*, not the values themselves.
+
+**Q: Class basics?**
+
+- `__init__` — the constructor, called automatically when an instance is created.
+- `self` is always the first parameter of any instance method (Python passes it automatically).
+- To create an instance, call the class like a function: `obj = MyClass(...)`.
+
+**Q: What is a coroutine?**
+
+*(Important correction: the original notes conflated coroutines with the GIL — these are unrelated concepts. Corrected below.)*
+
+A coroutine is a specialized function that can **pause its execution** and **resume later**, letting other code run in the meantime — the basis of Python's `async`/`await` model (cooperative, single-threaded concurrency).
+
+This is **not** the same thing as the GIL. The **GIL (Global Interpreter Lock)** is a separate mechanism in CPython that ensures only one thread executes Python bytecode at a time, regardless of whether coroutines are involved — it's about *threading*, not about coroutines. Coroutines achieve concurrency *without* needing multiple threads at all — a single thread cooperatively switches between coroutines at `await` points.
+
+**Q: What is a lambda function?**
+
+*(Fixed typo: "lamda" → "lambda".)* An anonymous (unnamed) function, typically for short, throwaway logic:
+
+```python
+f = lambda a: a * a
+```
+
+**Q: What is a decorator?**
+
+A function that wraps another function to add extra behavior, without modifying the original function's code:
 
 ```python
 def my_decorator(func):
@@ -748,337 +1122,89 @@ def my_decorator(func):
 
 @my_decorator
 def greet():
-    print("Hello World!")
-
-greet()
+    print("Hello world!")
 ```
-
-**Output**
-
-```text
-before execution
-Hello World!
-after execution
-```
-
-## Explanation
-
-- `@my_decorator` wraps the `greet()` function.
-- The decorator executes code before and after the original function.
 
 ---
 
-# Virtual Environment
+### Environment & Dependency Management
 
-### Q. What is a Virtual Environment?
+**Q: What is a virtual environment?**
 
-A virtual environment is an isolated Python environment that contains its own Python interpreter and packages.
+A self-contained directory for installing packages specific to one project, isolated from the system-wide Python installation — keeps your global Python environment clean and prevents dependency conflicts between projects.
 
-## Benefits
+**Q: What is `requirements.txt`?**
 
-- Prevents package conflicts between projects.
-- Keeps the global Python installation clean.
-- Allows different projects to use different package versions.
+A file listing the libraries (and often their versions) a project depends on.
 
-## Commands
+*(Fixed a path typo in the activation command.)*
 
 ```bash
 python -m venv .venv
-```
 
-Activate on PowerShell:
-
-```powershell
+# Windows (PowerShell)
 .venv\Scripts\Activate.ps1
+
+# macOS/Linux
+source .venv/bin/activate
 ```
 
----
+**Q: What is a lock file?**
 
-# requirements.txt
-
-### Q. What is requirements.txt?
-
-`requirements.txt` contains the list of Python packages required for a project.
-
-Example:
-
-```text
-langchain
-openai
-fastapi
-uvicorn
-```
-
-Install packages:
-
-```bash
-pip install -r requirements.txt
-```
-
-Generate file:
-
-```bash
-pip freeze > requirements.txt
-```
+Records the **exact resolved version** of every package (and its dependencies) actually installed — used to reproduce an identical environment elsewhere, rather than just "install whatever's compatible right now" as a loose `requirements.txt` might.
 
 ---
 
-# Lock File
+### Data Structures
 
-### Q. What is a Lock File?
+**Q: What are Python's core built-in data structures?**
 
-A lock file stores the exact versions of all packages and their dependencies.
+*(Cleaned up a slightly garbled line on tuples.)*
 
-Examples:
+- **List** — ordered, mutable, allows duplicate values.
+- **Tuple** — ordered, immutable; generally faster than a list for fixed data, and — because it's immutable (hashable) — can be used as a dictionary key, unlike a list.
+- **Set** — unordered, no duplicates, extremely fast membership lookup (`in` checks).
+- **Dictionary** — key-value pairs, fast lookup by key.
 
-- `uv.lock`
-- `poetry.lock`
-- `Pipfile.lock`
+**Q: Ordered vs. unordered data structures?**
 
----
+- **Ordered** — preserves the order elements were inserted in; you can rely on iterating/accessing them in that order.
+- **Unordered** — doesn't guarantee any particular order; often used specifically when you need fast lookups or uniqueness rather than order (e.g., a `set`).
 
-# System Prompt
+*(Worth knowing for an interview: since Python 3.7, the built-in `dict` officially guarantees insertion order as a language feature — so in modern Python, `dict` is technically both "key-value" and "ordered," which surprises people expecting dictionaries to be inherently unordered.)*
 
-### Q. What is a System Prompt?
+**Q: What are generators in Python?**
 
-A system prompt is a set of instructions given to an LLM that defines how it should behave, respond, and follow rules throughout the conversation.
+*(Left blank in the original notes — filled in below.)*
 
----
-
-# Python Data Structures
-
-### Q. What are the main Python data structures?
-
-| Data Structure | Description |
-|---------------|-------------|
-| List | Ordered, mutable, allows duplicates |
-| Tuple | Ordered, immutable, allows duplicates |
-| Set | Unordered, unique values only |
-| Dictionary | Key-value pairs, fast lookup by key |
-
----
-
-# Ordered vs Unordered Data Structures
-
-### Q. What is the difference between ordered and unordered data structures?
-
-**Ordered**
-- Maintains insertion order.
-- Elements can be accessed by position.
-
-Examples:
-- List
-- Tuple
-- Dictionary (Python 3.7+)
-
-**Unordered**
-- Does not guarantee element order.
-- Usually optimized for uniqueness or fast lookup.
-
-Example:
-- Set
-
----
-
-# Generators
-
-### Q. What are Generators in Python?
-
-Generators are functions that produce values one at a time using the `yield` keyword instead of returning all values at once.
+A generator is a function that produces a sequence of values **lazily**, one at a time, instead of computing and returning them all at once. It uses `yield` instead of `return` — each call to `next()` on the generator resumes execution right where it left off, runs until the next `yield`, and pauses again.
 
 ```python
-def numbers():
-    yield 1
-    yield 2
-    yield 3
+def count_up_to(n):
+    i = 1
+    while i <= n:
+        yield i
+        i += 1
+
+for num in count_up_to(5):
+    print(num)  # 1, 2, 3, 4, 5 — computed one at a time, not all up front
 ```
 
-Benefits:
-- Memory efficient
-- Useful for large datasets
+Generators are memory-efficient for large or infinite sequences, since they never hold the entire sequence in memory at once — this is the same underlying mechanism behind `yield return` in C#, covered in the .NET notes.
 
----
+**Q: `*args` and `**kwargs`?**
 
-# *args and **kwargs
+- **`*args`** — collects any number of extra **positional** arguments into a tuple.
+- **`**kwargs`** — collects any number of extra **keyword** arguments into a dictionary.
 
-### Q. What are *args and **kwargs?
+**Q: What is `Literal` (from `typing`)?**
 
-### *args
-
-Collects multiple positional arguments into a tuple.
-
-```python
-def add(*args):
-    print(args)
-```
-
-### **kwargs
-
-Collects multiple keyword arguments into a dictionary.
-
-```python
-def show(**kwargs):
-    print(kwargs)
-```
-
----
-
-# Single Agent vs Multi-Agent
-
-### Q. When should you use a Single Agent?
-
-Use a single agent when:
-
-- The solution handles one main task or intent.
-- A single team manages the application.
-- No separate authentication or deployment is needed.
-- Tool usage is relatively simple.
-
-### Q. When should you use Multiple Agents?
-
-Use multiple agents when:
-
-- Different tasks require specialized expertise.
-- Agents need different tools or permissions.
-- Different teams manage different components.
-- Agents can be reused across applications.
-
----
-
-# Multi-Agent Architecture
-
-### Q. What is a Multi-Agent System?
-
-A multi-agent system consists of multiple agents working together to solve a problem.
-
-Each agent typically has:
-
-- Its own prompt
-- Its own tools
-- Its own memory/state
-- Its own business logic
-
-In LangGraph:
-
-- Agent = Node
-- Communication path = Edge
-
----
-
-# Spec Driven Development
-
-### Q. What is Spec Driven Development?
-
-Spec Driven Development starts with a detailed specification before writing code.
-
-## Step 1: Specify
-- Problem being solved
-- Users
-- Expected outcome
-- User journey
-
-## Step 2: Plan
-- Architecture
-- Technology stack
-- Constraints
-- Performance requirements
-
-## Step 3: Tasks
-Break work into small testable tasks.
-
----
-
-# Literal Type in Python
-
-### Q. What is Literal in Python?
+Restricts a value to one of a specific, fixed set of literal values — useful for catching typos or invalid values at type-check time rather than at runtime.
 
 ```python
 from typing import Literal
 
-def process(status: Literal["start", "end"]):
-    pass
+def set_status(status: Literal["start", "end"]) -> None:
+    ...
+# set_status("startt")  # a type checker (e.g., mypy) would flag this as invalid
 ```
-
-Restricts a variable to specific predefined values.
-
----
-
-# Command Object in LangGraph
-
-### Q. What is the Command object in LangGraph?
-
-The Command object allows a node to:
-
-1. Update graph state.
-2. Decide which node executes next.
-
-Example:
-
-```python
-return Command(
-    update={"status": "completed"},
-    goto="next_node"
-)
-```
-
----
-
-## Difference between List and Tuple
-
-| List | Tuple |
-|------|--------|
-| Mutable | Immutable |
-| Slower | Faster |
-| More memory | Less memory |
-
----
-
-## Difference between Deep Copy and Shallow Copy
-
-### Shallow Copy
-
-```python
-import copy
-b = copy.copy(a)
-```
-
-### Deep Copy
-
-```python
-b = copy.deepcopy(a)
-```
-
----
-
-## Difference between Process and Thread
-
-### Thread
-- Shares memory
-- Lightweight
-- Good for I/O tasks
-
-### Process
-- Separate memory
-- Heavier
-- Good for CPU-intensive tasks
-
----
-
-## What is GIL in Python?
-
-GIL (Global Interpreter Lock) allows only one thread to execute Python bytecode at a time.
-
-- Threads are good for I/O-bound tasks.
-- Multiprocessing is preferred for CPU-bound tasks.
-
----
-
-## What is a Python Dictionary Internally?
-
-Python dictionaries are implemented using a hash table.
-
-Benefits:
-
-- O(1) average lookup
-- O(1) average insertion
-- O(1) average deletion
