@@ -41,10 +41,38 @@ Update CONTEXT.md to reflect:
 - Architecture changes
 - Important design decisions
 
-  Step 5: Start Every New AI Session With It
+Step 5: Start Every New AI Session With It
 
-  Read CONTEXT.md first.
+Read CONTEXT.md first.
 
 Summarize your understanding of the project.
 
 Then help me implement feature X.
+
+Step 6: Don't Let Context Grow Forever
+instead of entering every details in one chat
+Current chat
+→ summarize findings
+→ new chat
+→ load summary
+
+Step 7 : Make AI explain before acting
+
+Explain:
+
+- What the problem is
+- Which files are involved
+- Why those files matter
+- What changes are required
+
+Do not write code yet.
+
+Takeaway 
+The best prompt is often:
+What information do you need before you can confidently implement this feature?
+Let the AI ask questions and identify missing context before coding.
+
+This is how senior engineers work in real projects. They don't start coding immediately. They first gather context, build a mental model, then implement.
+
+In one sentence: Dex's real message is not "create a CONTEXT.md file." It's "treat context as a first-class artifact and spend as much effort managing context as you spend writing code."
+
